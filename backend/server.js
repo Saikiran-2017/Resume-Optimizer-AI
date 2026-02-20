@@ -2937,14 +2937,9 @@ app.listen(PORT, () => {
   console.log(`\n🚀 Resume Optimizer Backend Running!`);
   console.log(`📍 http://localhost:${PORT}`);
   console.log(`✅ Health: http://localhost:${PORT}/health`);
+  console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
   console.log(`🤖 Supports: Gemini AI & ChatGPT`);
   console.log(`🎯 ATS Target: 100% Match Rate\n`);
-});
-
-app.listen(PORT, () => {
-  console.log(`\n🚀 Job Tracker Server Running!`);
-  console.log(`📍 http://localhost:${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard\n`);
 });
 
 // =====================================================
