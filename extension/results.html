@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
     <title>Resume Analysis Results</title>
@@ -9,170 +8,204 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f5f0;
+            color: #2c2c2c;
             min-height: 100vh;
-            padding: 30px;
+            padding: 40px 24px;
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .back-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #fff;
+            border: 2px solid #2c2c2c;
+            color: #2c2c2c;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            transition: all 0.1s;
+        }
+
+        .back-btn:hover {
+            background: #2c2c2c;
+            color: #fff;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #fff;
+            border: 3px solid #2c2c2c;
             padding: 40px;
-            text-align: center;
+            margin-bottom: 24px;
+            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
         }
 
         .header h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
+            font-size: 48px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: -2px;
         }
 
         .header p {
-            font-size: 16px;
-            opacity: 0.9;
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .company-info {
-            padding: 20px 40px;
-            background: #f8f9fa;
-            border-bottom: 2px solid #e0e0e0;
+            background: #f9f9f9;
+            border: 2px solid #2c2c2c;
+            padding: 20px;
+            margin-bottom: 24px;
         }
 
         .company-info h2 {
-            font-size: 20px;
-            color: #333;
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
         }
 
         .scores-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
-            padding: 40px;
+            margin-bottom: 24px;
         }
 
         .score-card {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 25px;
+            background: #fff;
+            border: 3px solid #2c2c2c;
+            padding: 30px;
             text-align: center;
-            transition: transform 0.3s;
+            transition: all 0.1s;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
         }
 
         .score-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
         }
 
         .score-card .icon {
-            font-size: 40px;
-            margin-bottom: 10px;
+            font-size: 48px;
+            margin-bottom: 12px;
         }
 
         .score-card .label {
-            font-size: 14px;
+            font-size: 11px;
             color: #666;
-            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 12px;
         }
 
         .score-card .score {
-            font-size: 48px;
-            font-weight: bold;
-            margin-bottom: 5px;
+            font-size: 64px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
 
-        .score-card .score.excellent {
-            color: #28a745;
-        }
-
-        .score-card .score.good {
-            color: #17a2b8;
-        }
-
-        .score-card .score.moderate {
-            color: #ffc107;
-        }
-
-        .score-card .score.low {
-            color: #dc3545;
-        }
+        .score-card .score.excellent { color: #388e3c; }
+        .score-card .score.good { color: #1976d2; }
+        .score-card .score.moderate { color: #f57c00; }
+        .score-card .score.low { color: #d32f2f; }
 
         .score-card .indicator {
-            font-size: 20px;
+            font-size: 24px;
         }
 
         .summary-section {
-            padding: 40px;
-            background: #f0f4ff;
+            background: #fff;
+            border: 3px solid #2c2c2c;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
         }
 
         .summary-section h3 {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 15px;
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #2c2c2c;
+            padding-bottom: 12px;
         }
 
         .avg-score {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 20px;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            gap: 24px;
+            padding: 24px;
+            background: #f9f9f9;
+            border: 2px solid #2c2c2c;
+            margin-bottom: 24px;
         }
 
         .avg-score .number {
-            font-size: 64px;
-            font-weight: bold;
-            color: #667eea;
+            font-size: 80px;
+            font-weight: 700;
+            color: #2c2c2c;
         }
 
         .avg-score .label {
-            font-size: 18px;
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
             color: #666;
         }
 
         .recommendation {
-            background: white;
+            background: #fff9c4;
+            border: 2px solid #fbc02d;
+            border-left: 6px solid #fbc02d;
             padding: 20px;
-            border-radius: 10px;
             margin-bottom: 20px;
         }
 
         .recommendation h4 {
-            color: #667eea;
+            color: #f57c00;
             margin-bottom: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: 700;
         }
 
-        .strengths,
-        .improvements {
-            background: white;
+        .strengths, .improvements {
+            background: #f9f9f9;
+            border: 2px solid #2c2c2c;
             padding: 20px;
-            border-radius: 10px;
             margin-bottom: 20px;
         }
 
         .strengths h4 {
-            color: #28a745;
-            margin-bottom: 10px;
+            color: #388e3c;
+            margin-bottom: 12px;
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: 700;
         }
 
         .improvements h4 {
-            color: #dc3545;
-            margin-bottom: 10px;
+            color: #d32f2f;
+            margin-bottom: 12px;
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: 700;
         }
 
         ul {
@@ -184,48 +217,59 @@
             padding: 8px 0;
             padding-left: 25px;
             position: relative;
+            line-height: 1.6;
         }
 
         ul li::before {
             content: "✓";
             position: absolute;
             left: 0;
-            color: #28a745;
+            color: #388e3c;
             font-weight: bold;
+            font-size: 16px;
         }
 
         .improvements ul li::before {
             content: "→";
-            color: #dc3545;
+            color: #d32f2f;
         }
 
         .detailed-reports {
-            padding: 40px;
+            background: #fff;
+            border: 3px solid #2c2c2c;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
         }
 
         .detailed-reports h3 {
             font-size: 24px;
-            color: #333;
+            font-weight: 700;
+            text-transform: uppercase;
             margin-bottom: 20px;
+            border-bottom: 3px solid #2c2c2c;
+            padding-bottom: 12px;
         }
 
         .report-card {
-            background: #f8f9fa;
-            border-radius: 10px;
+            background: #f9f9f9;
+            border: 2px solid #2c2c2c;
             padding: 20px;
             margin-bottom: 20px;
         }
 
         .report-card h4 {
-            color: #667eea;
+            color: #2c2c2c;
             margin-bottom: 15px;
-            font-size: 18px;
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
         }
 
         .report-card pre {
-            background: white;
+            background: #fff;
+            border: 2px solid #e0e0e0;
             padding: 15px;
-            border-radius: 5px;
             overflow-x: auto;
             font-size: 12px;
             line-height: 1.6;
@@ -234,58 +278,58 @@
         }
 
         .actions {
-            padding: 40px;
-            text-align: center;
-            border-top: 2px solid #e0e0e0;
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 32px;
         }
 
         .actions button {
-            padding: 15px 40px;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 10px;
+            padding: 14px 28px;
+            font-size: 14px;
+            font-weight: 700;
+            border: 3px solid #2c2c2c;
             cursor: pointer;
-            margin: 0 10px;
-            transition: all 0.3s;
+            transition: all 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
         }
 
         .optimize-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #2c2c2c;
+            color: #fff;
         }
 
         .optimize-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
         }
 
         .download-btn {
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
+            background: #fff;
+            color: #2c2c2c;
         }
 
         .download-btn:hover {
-            background: #f0f4ff;
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
-
 <body>
     <div class="container">
-        <!-- Header -->
+        <a href="#" class="back-btn" onclick="window.close()">← BACK</a>
+        
         <div class="header">
-            <h1>📊 Resume Analysis Results</h1>
-            <p>Comprehensive 4-Score Analysis</p>
+            <h1>📊 Resume Analysis</h1>
+            <p>4-Score Comprehensive Evaluation</p>
         </div>
 
-        <!-- Company Info -->
         <div class="company-info">
             <h2 id="companyName">Loading...</h2>
         </div>
 
-        <!-- Scores Grid -->
         <div class="scores-grid">
             <div class="score-card">
                 <div class="icon">📄</div>
@@ -316,7 +360,6 @@
             </div>
         </div>
 
-        <!-- Summary Section -->
         <div class="summary-section">
             <h3>Overall Analysis</h3>
 
@@ -345,7 +388,6 @@
             </div>
         </div>
 
-        <!-- Detailed Reports -->
         <div class="detailed-reports">
             <h3>📝 Detailed Analysis Reports</h3>
 
@@ -370,7 +412,6 @@
             </div>
         </div>
 
-        <!-- Actions -->
         <div class="actions">
             <button class="optimize-btn" onclick="optimizeNow()">
                 🚀 Optimize Resume Now
@@ -383,5 +424,4 @@
 
     <script src="results.js"></script>
 </body>
-
 </html>

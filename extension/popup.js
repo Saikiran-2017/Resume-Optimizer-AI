@@ -345,60 +345,103 @@ document.addEventListener('DOMContentLoaded', function () {
   // PART 2 - Main Functions
 
   // Handle Analysis (NEW FUNCTION)
-  async function handleAnalyze(jobDescription, jobUrl) {
-    try {
-      updateLoadingStep('Analyzing resume...', 20);
+async function handleAnalyze(jobDescription, jobUrl) {
+  try {
+    // Step 1: Initialize
+    updateStep(1, 'active');
+    updateLoadingStep('Initializing analysis...', 10);
+    await sleep(500);
+    updateStep(1, 'done');
 
-      const settings = await chrome.storage.local.get([
-        'aiProvider', 'geminiKey1', 'geminiKey2', 'geminiKey3',
-        'chatgptApiKey', 'chatgptKey2', 'chatgptKey3'
-      ]);
+    // Step 2: Prepare data
+    updateStep(2, 'active');
+    updateLoadingStep('Preparing resume and JD...', 25);
+    await sleep(800);
+    
+    const settings = await chrome.storage.local.get([
+      'aiProvider', 'geminiKey1', 'geminiKey2', 'geminiKey3',
+      'chatgptApiKey', 'chatgptKey2', 'chatgptKey3'
+    ]);
+    updateStep(2, 'done');
 
-      const response = await fetch(`${ANALYSIS_URL}/api/analyze-resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobUrl: jobUrl || null,
-          currentPageUrl: jobUrl || null,
-          aiProvider: settings.aiProvider,
-          geminiKey1: settings.geminiKey1,  // For Score 1
-          geminiKey2: settings.geminiKey2,  // For Score 2
-          geminiKey3: settings.geminiKey3,  // For Score 3 & 4
-          chatgptApiKey: settings.chatgptApiKey,
-          chatgptKey2: settings.chatgptKey2,
-          chatgptKey3: settings.chatgptKey3,
-          manualJobDescription: jobDescription || null
-        })
-      });
+    // Step 3: Send to server
+    updateStep(3, 'active');
+    updateLoadingStep('Analyzing with AI...', 50);
 
-      updateLoadingStep('Processing analysis...', 50);
+    const response = await fetch(`${ANALYSIS_URL}/api/analyze-resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobUrl: jobUrl || null,
+        currentPageUrl: jobUrl || null,
+        aiProvider: settings.aiProvider,
+        geminiKey1: settings.geminiKey1,
+        geminiKey2: settings.geminiKey2,
+        geminiKey3: settings.geminiKey3,
+        chatgptApiKey: settings.chatgptApiKey,
+        chatgptKey2: settings.chatgptKey2,
+        chatgptKey3: settings.chatgptKey3,
+        manualJobDescription: jobDescription || null
+      })
+    });
 
-      const data = await response.json();
+    updateStep(3, 'done');
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Analysis failed');
-      }
+    // Step 4: Process results
+    updateStep(4, 'active');
+    updateLoadingStep('Processing results...', 75);
+    await sleep(600);
 
-      updateLoadingStep('Complete!', 100);
+    const data = await response.json();
 
-      console.log('Analysis data:', data);
-
-      // Store data in chrome.storage for results page
-      await chrome.storage.local.set({ analysisResults: data });
-
-      // Open results in new tab
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('results.html')
-      });
-
-      // Close popup after a moment
-      setTimeout(() => window.close(), 500);
-
-    } catch (error) {
-      console.error('Analysis error:', error);
-      showError(`Analysis failed: ${error.message}`);
+    if (!response.ok) {
+      throw new Error(data.error || 'Analysis failed');
     }
+
+    updateLoadingStep('Complete!', 100);
+    updateStep(4, 'done');
+    await sleep(500);
+
+    console.log('Analysis data:', data);
+
+    // Store data in chrome.storage for results page
+    await chrome.storage.local.set({ analysisResults: data });
+
+    // Open results in new tab
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('results.html')
+    });
+
+    // Close popup after a moment
+    setTimeout(() => window.close(), 500);
+
+  } catch (error) {
+    console.error('Analysis error:', error);
+    showError(`Analysis failed: ${error.message}`);
   }
+}
+
+// Helper function for delays
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Update step visual state
+function updateStep(stepNum, state) {
+  const stepEl = document.getElementById(`step${stepNum}`);
+  if (!stepEl) return;
+  
+  const dot = stepEl.querySelector('.step-dot');
+  
+  stepEl.classList.remove('active', 'done');
+  
+  if (state === 'active') {
+    stepEl.classList.add('active');
+  } else if (state === 'done') {
+    stepEl.classList.add('done');
+    if (dot) dot.textContent = '✓';
+  }
+}
 
   // Main optimization function
   async function optimizeResume(mode) {

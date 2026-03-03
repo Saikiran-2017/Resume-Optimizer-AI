@@ -151,11 +151,12 @@
       <div id="loadingState" class="state" style="display: none;">
         <div class="glass-card loading-card">
           <div class="loading-animation">
-            <div class="orbit-container">
-              <div class="orbit orbit-1"></div>
-              <div class="orbit orbit-2"></div>
-              <div class="orbit orbit-3"></div>
-              <div class="loader-icon">⚡</div>
+            <div class="loader-bars">
+              <div class="loader-bar"></div>
+              <div class="loader-bar"></div>
+              <div class="loader-bar"></div>
+              <div class="loader-bar"></div>
+              <div class="loader-bar"></div>
             </div>
           </div>
 
@@ -165,13 +166,12 @@
           <div class="progress-container">
             <div class="progress-bar">
               <div class="progress-fill" id="progressFill"></div>
-              <div class="progress-glow"></div>
             </div>
             <span class="progress-text" id="progressText">0%</span>
           </div>
 
           <div class="loading-steps">
-            <div class="step-item active" id="step1">
+            <div class="step-item" id="step1">
               <div class="step-dot"></div>
               <span>Extract JD</span>
             </div>
@@ -196,14 +196,11 @@
         <div class="glass-card success-card">
           <div class="success-animation">
             <div class="success-circle">
-              <svg class="checkmark" viewBox="0 0 52 52">
-                <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none" />
-                <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-              </svg>
+              ✓
             </div>
           </div>
 
-          <h2 class="success-title">✨ Resume Optimized!</h2>
+          <h2 class="success-title">Resume Optimized!</h2>
           <p id="optimizationCount" class="success-subtitle"></p>
 
           <div class="job-info" id="jobInfoCard">
@@ -235,13 +232,13 @@
           </div>
 
           <div class="button-group">
-            <button id="optimizeAnother" class="btn btn-primary glow">
+            <button id="optimizeAnother" class="btn btn-primary">
               <span>⚡ Optimize Another</span>
             </button>
           </div>
         </div>
       </div>
-
+      
       <!-- Error State -->
       <div id="errorState" class="state" style="display: none;">
         <div class="glass-card error-card">
