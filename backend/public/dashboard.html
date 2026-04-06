@@ -27,6 +27,14 @@
                     <button class="btn-secondary" onclick="exportData()">
                         Export CSV
                     </button>
+                    <button class="btn-primary" onclick="openBatchModal()"
+                        style="background: linear-gradient(135deg, #f59e0b, #d97706); border-color: #b45309;">
+                        ⚡ Batch Optimize
+                    </button>
+                    <button class="btn-primary" onclick="window.location.href='/auto-apply'"
+    style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); border-color: #5b21b6;">
+    Auto Apply
+</button>
                     <button class="btn-primary" onclick="window.location.href='/add-application'">
                         New Application
                     </button>
@@ -150,6 +158,76 @@
 
     </div>
 
+    <!-- Batch Optimize Overlay -->
+    <div id="batchOverlay" class="delete-overlay hidden">
+        <div class="batch-modal">
+            <div class="batch-header">
+                <h3>⚡ Batch Optimize</h3>
+                <button class="batch-close" onclick="closeBatchModal()">&times;</button>
+            </div>
+
+            <!-- Input Phase -->
+            <div id="batchInputPhase">
+                <p class="batch-hint">Paste job URLs below (one per line). All will be optimized in parallel.</p>
+                <textarea id="batchUrls" rows="8"
+                    placeholder="https://company1.com/job/123&#10;https://company2.com/careers/456&#10;https://boards.greenhouse.io/company/jobs/789"></textarea>
+
+                <div class="batch-options">
+                    <div class="batch-option">
+                        <label>AI Provider</label>
+                        <select id="batchAiProvider" onchange="onBatchProviderChange()">
+                            <option value="chatgpt">ChatGPT</option>
+                            <option value="gemini">Gemini</option>
+                        </select>
+                    </div>
+                    <div class="batch-option">
+                        <label>Parallel Jobs</label>
+                        <select id="batchSize">
+                            <option value="1">1 (Safe)</option>
+                            <option value="2" selected>2 (Balanced)</option>
+                            <option value="3">3 (Fast)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="batchKeyInputs" class="batch-keys hidden">
+                    <p class="batch-hint">API keys (leave blank to use .env keys)</p>
+                    <div id="batchKeyFields"></div>
+                </div>
+
+                <div class="batch-actions">
+                    <span id="batchUrlCount" class="batch-count">0 URLs</span>
+                    <button class="btn-primary" onclick="startBatchOptimize()">
+                        🚀 Start Batch Optimize
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Phase -->
+            <div id="batchProgressPhase" class="hidden">
+                <div class="batch-progress-bar">
+                    <div id="batchBar" class="batch-bar" style="width: 0%"></div>
+                </div>
+                <p id="batchStatus" class="batch-status">Starting...</p>
+
+                <div id="batchResults" class="batch-results"></div>
+            </div>
+
+            <!-- Done Phase -->
+            <div id="batchDonePhase" class="hidden">
+                <div class="batch-summary">
+                    <span id="batchSuccessCount" class="batch-success-count">0</span> optimized
+                    <span id="batchFailCount" class="batch-fail-count">0</span> failed
+                </div>
+                <div id="batchFinalResults" class="batch-results"></div>
+                <div class="batch-actions">
+                    <button class="btn-secondary" onclick="closeBatchModal()">Close</button>
+                    <button class="btn-primary" onclick="location.reload()">Refresh Dashboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Popup -->
     <div id="deleteOverlay" class="delete-overlay hidden">
         <div class="delete-confirmation">
@@ -206,6 +284,10 @@
                 console.error(error);
             }
         }
+
+        function showAutoApplyHint() {
+    window.location.href = '/auto-apply';
+}
     </script>
 </body>
 

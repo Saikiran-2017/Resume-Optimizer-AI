@@ -316,6 +316,7 @@ function renderTable() {
                 <td onclick="event.stopPropagation()">
                     <div class="action-buttons">
                         <button class="action-btn" onclick="quickEdit(${app.id})">✏️ EDIT</button>
+                        <button class="action-btn" onclick="launchAutoApply(${app.id})" style="background: #8b5cf6; color: #fff; border-color: #6d28d9;">APPLY</button>
                         <button class="action-btn delete" onclick="showDeleteConfirmation(${app.id}, '${escapeHtml(app.company_name)}')">🗑️ DELETE</button>
                     </div>
                 </td>
@@ -521,6 +522,286 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// =====================================================
+// AUTO APPLY — Launch from dashboard
+// =====================================================
+
+function launchAutoApply(appId) {
+    // Find application data from the loaded array
+    const app = allApplications.find(a => a.id === appId);
+    if (!app) {
+        window.open(`/auto-apply/${appId}`, '_blank');
+        return;
+    }
+
+    const params = new URLSearchParams({
+        jdUrl: app.jd_link || '',
+        resumeLink: app.resume_link || '',
+        company: app.company_name || '',
+        position: app.position_applied || '',
+        appId: app.id || ''
+    });
+
+    // Navigate to application detail — Auto Apply section is there
+    window.location.href = `/application/${appId}`;
+}
+
+// =====================================================
+// BATCH OPTIMIZE
+// =====================================================
+
+function openBatchModal() {
+    document.getElementById('batchOverlay').classList.remove('hidden');
+    document.getElementById('batchInputPhase').classList.remove('hidden');
+    document.getElementById('batchProgressPhase').classList.add('hidden');
+    document.getElementById('batchDonePhase').classList.add('hidden');
+    document.getElementById('batchUrls').value = '';
+    document.getElementById('batchResults').innerHTML = '';
+    updateBatchUrlCount();
+}
+
+function closeBatchModal() {
+    document.getElementById('batchOverlay').classList.add('hidden');
+}
+
+function updateBatchUrlCount() {
+    const text = document.getElementById('batchUrls').value;
+    const count = text.split('\n').map(l => l.trim()).filter(l => l.length > 0).length;
+    document.getElementById('batchUrlCount').textContent = `${count} URL${count !== 1 ? 's' : ''}`;
+}
+
+// Update count as user types
+document.addEventListener('DOMContentLoaded', () => {
+    const ta = document.getElementById('batchUrls');
+    if (ta) ta.addEventListener('input', updateBatchUrlCount);
+});
+
+function onBatchProviderChange() {
+    const provider = document.getElementById('batchAiProvider').value;
+    const container = document.getElementById('batchKeyInputs');
+    const fields = document.getElementById('batchKeyFields');
+
+    if (provider === 'gemini') {
+        fields.innerHTML = `
+            <input type="password" id="batchGeminiKey1" placeholder="Gemini Key 1 (.env fallback)" />
+            <input type="password" id="batchGeminiKey2" placeholder="Gemini Key 2 (.env fallback)" />
+            <input type="password" id="batchGeminiKey3" placeholder="Gemini Key 3 (.env fallback)" />
+        `;
+    } else {
+        fields.innerHTML = `
+            <input type="password" id="batchChatgptKey" placeholder="ChatGPT Key (.env fallback)" />
+            <input type="password" id="batchChatgptKey2" placeholder="ChatGPT Key 2 (.env fallback)" />
+            <input type="password" id="batchChatgptKey3" placeholder="ChatGPT Key 3 (.env fallback)" />
+        `;
+    }
+    container.classList.remove('hidden');
+}
+
+async function startBatchOptimize() {
+    const text = document.getElementById('batchUrls').value;
+    const urls = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    if (urls.length === 0) {
+        alert('Please paste at least one URL');
+        return;
+    }
+
+    const aiProvider = document.getElementById('batchAiProvider').value;
+    const batchSize = parseInt(document.getElementById('batchSize').value);
+
+    // Collect keys
+    const body = { urls, aiProvider, batchSize };
+    if (aiProvider === 'gemini') {
+        body.geminiKey1 = (document.getElementById('batchGeminiKey1')?.value || '').trim() || undefined;
+        body.geminiKey2 = (document.getElementById('batchGeminiKey2')?.value || '').trim() || undefined;
+        body.geminiKey3 = (document.getElementById('batchGeminiKey3')?.value || '').trim() || undefined;
+    } else {
+        body.chatgptApiKey = (document.getElementById('batchChatgptKey')?.value || '').trim() || undefined;
+        body.chatgptKey2 = (document.getElementById('batchChatgptKey2')?.value || '').trim() || undefined;
+        body.chatgptKey3 = (document.getElementById('batchChatgptKey3')?.value || '').trim() || undefined;
+    }
+
+    // Switch to progress phase
+    document.getElementById('batchInputPhase').classList.add('hidden');
+    document.getElementById('batchProgressPhase').classList.remove('hidden');
+    document.getElementById('batchDonePhase').classList.add('hidden');
+
+    const resultsDiv = document.getElementById('batchResults');
+    resultsDiv.innerHTML = urls.map((url, i) => `
+        <div class="batch-job" id="batchJob${i}">
+            <div class="batch-job-status">⏳</div>
+            <div class="batch-job-info">
+                <div class="batch-job-url">${escapeHtml(url.length > 60 ? url.substring(0, 60) + '...' : url)}</div>
+                <div class="batch-job-detail" id="batchJobDetail${i}">Waiting...</div>
+            </div>
+        </div>
+    `).join('');
+
+    // SSE connection
+    try {
+        const response = await fetch('/api/batch-optimize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        // Check for error responses (400, 500, etc.)
+        if (!response.ok) {
+            let errMsg = `Server error (${response.status})`;
+            try {
+                const errBody = await response.json();
+                errMsg = errBody.error || errMsg;
+            } catch (_) {}
+            document.getElementById('batchStatus').textContent = errMsg;
+            console.error('Batch optimize error:', errMsg);
+            // Switch back to input phase so user can fix and retry
+            document.getElementById('batchProgressPhase').classList.add('hidden');
+            document.getElementById('batchInputPhase').classList.remove('hidden');
+            alert('Batch optimize failed: ' + errMsg);
+            return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            // SSE format: "event: name\ndata: json\n\n"
+            // Split on double newlines to get complete events
+            const eventBlocks = buffer.split('\n\n');
+            buffer = eventBlocks.pop() || ''; // last incomplete block stays in buffer
+
+            for (const block of eventBlocks) {
+                if (!block.trim()) continue;
+                const lines = block.split('\n');
+                let currentEvent = '';
+                let currentData = '';
+
+                for (const line of lines) {
+                    if (line.startsWith('event: ')) {
+                        currentEvent = line.substring(7).trim();
+                    } else if (line.startsWith('data: ')) {
+                        currentData = line.substring(6);
+                    }
+                }
+
+                if (currentEvent && currentData) {
+                    try {
+                        const data = JSON.parse(currentData);
+                        handleBatchEvent(currentEvent, data, urls.length);
+                    } catch (e) {
+                        console.warn('Failed to parse SSE data:', currentData, e);
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Batch optimize error:', err);
+        document.getElementById('batchStatus').textContent = `Error: ${err.message}`;
+    }
+}
+
+function handleBatchEvent(event, data, total) {
+    const bar = document.getElementById('batchBar');
+    const status = document.getElementById('batchStatus');
+
+    switch (event) {
+        case 'start':
+            status.textContent = `Optimizing ${data.total} jobs (${data.concurrency} parallel)...`;
+            break;
+
+        case 'job_start': {
+            const el = document.getElementById(`batchJob${data.index}`);
+            if (el) el.querySelector('.batch-job-status').textContent = '🔄';
+            const detail = document.getElementById(`batchJobDetail${data.index}`);
+            if (detail) detail.textContent = 'Processing...';
+            break;
+        }
+
+        case 'progress': {
+            const detail = document.getElementById(`batchJobDetail${data.index}`);
+            if (detail) detail.textContent = data.message.replace(/^[\s🤖📄🔍🎯✍️☁️✅⚠️💡📍]+/, '');
+            break;
+        }
+
+        case 'job_done': {
+            const pct = Math.round((data.completed / data.total) * 100);
+            bar.style.width = pct + '%';
+            status.textContent = `${data.completed}/${data.total} completed`;
+
+            const el = document.getElementById(`batchJob${data.index}`);
+            if (el) {
+                el.querySelector('.batch-job-status').textContent = '✅';
+                el.classList.add('batch-job-success');
+            }
+            const detail = document.getElementById(`batchJobDetail${data.index}`);
+            if (detail) {
+                const r = data.result;
+                detail.innerHTML = `<strong>${escapeHtml(r.companyName)} — ${escapeHtml(r.position)}</strong>
+                    <a href="${r.resumeLink}" target="_blank" class="batch-link">📄 Open</a>
+                    <a href="${r.downloadPDF}" target="_blank" class="batch-link">⬇️ PDF</a>`;
+            }
+            break;
+        }
+
+        case 'job_error': {
+            const pct = Math.round((data.completed / data.total) * 100);
+            bar.style.width = pct + '%';
+            status.textContent = `${data.completed}/${data.total} completed`;
+
+            const el = document.getElementById(`batchJob${data.index}`);
+            if (el) {
+                el.querySelector('.batch-job-status').textContent = '❌';
+                el.classList.add('batch-job-error');
+            }
+            const detail = document.getElementById(`batchJobDetail${data.index}`);
+            if (detail) detail.textContent = `Failed: ${data.error}`;
+            break;
+        }
+
+        case 'complete': {
+            bar.style.width = '100%';
+
+            // Switch to done phase
+            document.getElementById('batchProgressPhase').classList.add('hidden');
+            document.getElementById('batchDonePhase').classList.remove('hidden');
+            document.getElementById('batchSuccessCount').textContent = data.succeeded;
+            document.getElementById('batchFailCount').textContent = data.failed;
+
+            // Show final results with links
+            const finalDiv = document.getElementById('batchFinalResults');
+            finalDiv.innerHTML = data.results.map((r, i) => {
+                if (r.success) {
+                    return `<div class="batch-job batch-job-success">
+                        <div class="batch-job-status">✅</div>
+                        <div class="batch-job-info">
+                            <strong>${escapeHtml(r.companyName)} — ${escapeHtml(r.position)}</strong>
+                            <div class="batch-job-links">
+                                <a href="${r.resumeLink}" target="_blank">📄 Google Doc</a>
+                                <a href="${r.downloadPDF}" target="_blank">⬇️ PDF</a>
+                            </div>
+                        </div>
+                    </div>`;
+                } else {
+                    return `<div class="batch-job batch-job-error">
+                        <div class="batch-job-status">❌</div>
+                        <div class="batch-job-info">
+                            <div class="batch-job-url">${escapeHtml(r.jobUrl || 'Unknown')}</div>
+                            <div class="batch-job-detail">${escapeHtml(r.error)}</div>
+                        </div>
+                    </div>`;
+                }
+            }).join('');
+            break;
+        }
+    }
 }
 
 // =====================================================

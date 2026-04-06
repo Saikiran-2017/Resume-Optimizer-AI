@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto Apply</title>
+    <link rel="stylesheet" href="/auto-apply.css" />
+</head>
+<body style="background:#f5f5f0; min-height:100vh; margin:0;">
+
+<div class="auto-apply-container">
+
+    <div class="auto-apply-header">
+        <h1>Auto Apply</h1>
+        <p>Apply to any job automatically — bot opens a visible browser, fills every field with AI, pauses for your review</p>
+        <div class="header-actions">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/profile-settings">Edit Profile</a>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="aa-card" id="formCard">
+        <h3>Job Details</h3>
+
+        <label class="aa-label">Job Post URL <span class="required">*</span></label>
+        <input type="url" id="jdUrl" class="aa-input" placeholder="https://company.wd1.myworkdayjobs.com/..." />
+        <p class="aa-hint">Paste the Workday / Greenhouse / Lever application page URL</p>
+
+        <label class="aa-label">Job Description <span class="required">*</span></label>
+        <textarea id="jobDescription" class="aa-textarea" placeholder="Paste the full job description here..."></textarea>
+
+        <label class="aa-label">Resume</label>
+        <div class="aa-radio-group">
+            <label class="aa-radio-option">
+                <input type="radio" name="resumeType" value="link" checked onchange="toggleResumeInput()" />
+                <div class="aa-radio-content">
+                    <span>Google Docs Link</span>
+                </div>
+            </label>
+            <input type="url" id="resumeLink" class="aa-input" placeholder="https://docs.google.com/document/d/..." />
+
+            <label class="aa-radio-option">
+                <input type="radio" name="resumeType" value="upload" onchange="toggleResumeInput()" />
+                <div class="aa-radio-content">
+                    <span>Upload PDF</span>
+                </div>
+            </label>
+            <input type="file" id="resumeFile" class="aa-input" accept=".pdf" style="display:none;" />
+        </div>
+
+        <label class="aa-label">Your Profile</label>
+        <a href="/profile-settings" class="aa-profile-link">Edit Profile Settings</a>
+
+        <button id="startBtn" class="aa-start-btn" onclick="startBot()">Start Auto Apply</button>
+    </div>
+
+    <!-- Live Panel -->
+    <div id="botLivePanel" class="bot-live-panel hidden">
+        <div class="live-header">
+            <span id="liveState" class="live-state">IDLE</span>
+            <span id="liveAts"></span>
+            <span id="livePage" class="live-page"></span>
+            <div class="live-counts">
+                <span class="count-filled">Filled: <strong id="liveFilled">0</strong></span>
+                <span class="count-flagged">Flagged: <strong id="liveFlagged">0</strong></span>
+            </div>
+        </div>
+        <div class="live-current" id="liveCurrent">Waiting to start...</div>
+        <div class="live-controls" id="liveControls"></div>
+        <div class="flagged-list hidden" id="liveFlaggedList"></div>
+        <div class="live-log-header">Activity Log</div>
+        <div class="live-log" id="liveLog"></div>
+    </div>
+
+</div>
+
+<script src="/auto-apply.js"></script>
+</body>
+</html>

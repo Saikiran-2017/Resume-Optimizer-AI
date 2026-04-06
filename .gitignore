@@ -29,3 +29,6 @@ npm-debug.log*
 # Credentials (CRITICAL - NEVER COMMIT!)
 credentials.json
 token.json
+
+# Auto-apply bot browser profile (persistent cookies/sessions)
+backend/auto-apply/.browser-profile/

@@ -1,0 +1,395 @@
+/* ===================================
+   AUTO-APPLY — SHARED STYLES
+   Retro brutalist theme matching dashboard
+=================================== */
+
+.auto-apply-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    font-family: 'Courier New', Courier, monospace;
+    color: #2c2c2c;
+}
+
+.auto-apply-header {
+    border-bottom: 3px solid #2c2c2c;
+    padding-bottom: 16px;
+    margin-bottom: 32px;
+}
+
+.auto-apply-header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -2px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.auto-apply-header p {
+    color: #666;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.auto-apply-header .header-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.auto-apply-header .header-actions a {
+    color: #2c2c2c;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 2px solid #2c2c2c;
+    padding: 6px 14px;
+}
+
+.auto-apply-header .header-actions a:hover {
+    background: #2c2c2c;
+    color: #fff;
+}
+
+/* ── Form card ─────────────────────── */
+
+.aa-card {
+    border: 3px solid #2c2c2c;
+    padding: 28px;
+    margin-bottom: 24px;
+    background: #fff;
+}
+
+.aa-card h3 {
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 16px;
+    border-bottom: 2px solid #2c2c2c;
+    padding-bottom: 8px;
+}
+
+.aa-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    display: block;
+    color: #2c2c2c;
+}
+
+.aa-label .required {
+    color: #ef4444;
+}
+
+.aa-input, .aa-textarea, .aa-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #2c2c2c;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    background: #f5f5f0;
+    outline: none;
+    margin-bottom: 16px;
+}
+
+.aa-input:focus, .aa-textarea:focus, .aa-select:focus {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.aa-textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.aa-hint {
+    font-size: 11px;
+    color: #888;
+    margin-top: -12px;
+    margin-bottom: 16px;
+}
+
+/* ── Radio group for resume ────────── */
+
+.aa-radio-group {
+    margin-bottom: 16px;
+}
+
+.aa-radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+
+.aa-radio-option input[type="radio"] {
+    accent-color: #8b5cf6;
+}
+
+.aa-radio-content {
+    flex: 1;
+}
+
+/* ── Start button ──────────────────── */
+
+.aa-start-btn {
+    width: 100%;
+    padding: 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border: 3px solid #5b21b6;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.aa-start-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.aa-start-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* ===================================
+   LIVE BOT PANEL
+=================================== */
+
+.bot-live-panel {
+    border: 3px solid #2c2c2c;
+    background: #fff;
+    margin-top: 24px;
+    min-height: 320px;
+}
+
+.bot-live-panel.hidden {
+    display: none;
+}
+
+/* ── Live header ───────────────────── */
+
+.live-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 3px solid #2c2c2c;
+    background: #f5f5f0;
+}
+
+.live-state {
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 6px 14px;
+    border: 2px solid #2c2c2c;
+    background: #fff;
+}
+
+.live-page {
+    font-size: 13px;
+    color: #666;
+    font-weight: 700;
+}
+
+.live-counts {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.count-filled { color: #10b981; }
+.count-flagged { color: #f59e0b; }
+
+/* ── Current action ────────────────── */
+
+.live-current {
+    padding: 16px 20px;
+    border-bottom: 2px solid #e5e5e5;
+    font-size: 14px;
+    color: #2c2c2c;
+    background: #fafaf5;
+    min-height: 52px;
+}
+
+.live-current strong {
+    color: #8b5cf6;
+}
+
+/* ── Controls ──────────────────────── */
+
+.live-controls {
+    padding: 16px 20px;
+    border-bottom: 2px solid #e5e5e5;
+    min-height: 70px;
+}
+
+.control-hint {
+    font-size: 13px;
+    margin-bottom: 12px;
+    line-height: 1.6;
+    font-weight: 600;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.bot-btn {
+    padding: 10px 22px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 2px solid #2c2c2c;
+    cursor: pointer;
+    color: #fff;
+    background: #2c2c2c;
+    transition: opacity 0.15s, transform 0.1s;
+}
+
+.bot-btn:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+.bot-btn:active {
+    transform: translateY(0);
+}
+
+.bot-btn-confirm {
+    background: #8b5cf6;
+    border-color: #6d28d9;
+}
+
+.bot-btn-pause {
+    background: #f59e0b;
+    border-color: #d97706;
+}
+
+.bot-btn-stop {
+    background: #ef4444;
+    border-color: #dc2626;
+}
+
+.bot-btn-resume {
+    background: #10b981;
+    border-color: #059669;
+}
+
+/* ── Stuck timer ───────────────────── */
+
+.stuck-timer {
+    font-size: 13px;
+    color: #ef4444;
+    font-weight: 700;
+    margin-top: 8px;
+}
+
+/* ── Flagged fields ────────────────── */
+
+.flagged-list {
+    padding: 14px 20px;
+    border-bottom: 2px solid #e5e5e5;
+    background: #fffbeb;
+}
+
+.flagged-list.hidden { display: none; }
+
+.flagged-header {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    color: #d97706;
+}
+
+.flagged-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #fde68a;
+}
+
+.flagged-label { font-weight: 700; }
+.flagged-reason { color: #92400e; }
+
+/* ── Activity log ──────────────────── */
+
+.live-log-header {
+    padding: 10px 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    border-bottom: 1px solid #e5e5e5;
+    background: #f5f5f0;
+}
+
+.live-log {
+    min-height: 150px;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 10px 20px;
+}
+
+.log-entry {
+    font-size: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+    line-height: 1.5;
+    color: #444;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.log-entry .log-time {
+    color: #999;
+    margin-right: 10px;
+    font-weight: 700;
+}
+
+/* ── Profile link ──────────────────── */
+
+.aa-profile-link {
+    display: inline-block;
+    padding: 8px 16px;
+    border: 2px solid #2c2c2c;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #2c2c2c;
+    text-decoration: none;
+    margin-bottom: 16px;
+}
+
+.aa-profile-link:hover {
+    background: #2c2c2c;
+    color: #fff;
+}

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile Settings</title>
+    <link rel="stylesheet" href="/auto-apply.css" />
+    <style>
+        .section { margin-bottom: 32px; }
+        .section-title {
+            font-size: 14px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; border-bottom: 2px solid #2c2c2c;
+            padding-bottom: 8px; margin-bottom: 16px;
+        }
+        .field-row {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 0;
+        }
+        .field-row.full { grid-template-columns: 1fr; }
+        .field-group { margin-bottom: 16px; }
+        .field-group label {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; display: block; margin-bottom: 4px; color: #2c2c2c;
+        }
+        .field-group input, .field-group textarea, .field-group select {
+            width: 100%; padding: 8px 10px; border: 2px solid #2c2c2c;
+            font-family: 'Courier New', monospace; font-size: 13px; background: #f5f5f0;
+        }
+        .field-group textarea { min-height: 80px; resize: vertical; }
+        .field-group input:focus, .field-group textarea:focus {
+            border-color: #8b5cf6; outline: none;
+        }
+        .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .toggle-row input[type="checkbox"] { accent-color: #8b5cf6; width: 18px; height: 18px; }
+        .work-entry {
+            border: 2px solid #ddd; padding: 16px; margin-bottom: 16px; background: #fafaf5;
+        }
+        .work-entry-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+        }
+        .work-entry-header strong { font-size: 13px; }
+        .remove-btn {
+            background: #ef4444; color: #fff; border: 2px solid #dc2626;
+            padding: 4px 10px; font-family: 'Courier New', monospace;
+            font-size: 11px; cursor: pointer; font-weight: 700;
+        }
+        .add-btn {
+            border: 2px dashed #999; padding: 10px; text-align: center;
+            cursor: pointer; font-family: 'Courier New', monospace;
+            font-size: 12px; color: #666; font-weight: 700; text-transform: uppercase;
+        }
+        .add-btn:hover { border-color: #8b5cf6; color: #8b5cf6; }
+        .save-bar {
+            position: sticky; bottom: 0; background: #fff; border-top: 3px solid #2c2c2c;
+            padding: 16px; display: flex; gap: 12px; justify-content: flex-end; z-index: 10;
+        }
+        .save-btn {
+            padding: 10px 32px; font-family: 'Courier New', monospace; font-size: 14px;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
+            border: 3px solid #5b21b6; background: #8b5cf6; color: #fff;
+        }
+        .save-btn:hover { background: #7c3aed; }
+        .save-msg { padding: 10px; font-size: 13px; color: #10b981; font-weight: 700; display: none; }
+    </style>
+</head>
+<body style="background:#f5f5f0; min-height:100vh; margin:0;">
+
+<div class="auto-apply-container">
+    <div class="auto-apply-header">
+        <h1>Profile Settings</h1>
+        <p>This data is used by the auto-apply bot to fill application forms</p>
+        <div class="header-actions">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/auto-apply">Auto Apply</a>
+        </div>
+    </div>
+
+    <div id="loading" style="text-align:center; padding:40px; font-weight:700;">Loading profile...</div>
+
+    <div id="profileForm" style="display:none;">
+
+        <!-- Personal -->
+        <div class="section">
+            <div class="section-title">Personal Information</div>
+            <div class="field-row">
+                <div class="field-group"><label>First Name</label><input id="p_firstName" /></div>
+                <div class="field-group"><label>Last Name</label><input id="p_lastName" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>Email</label><input id="p_email" type="email" /></div>
+                <div class="field-group"><label>Phone</label><input id="p_phone" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>LinkedIn</label><input id="p_linkedin" /></div>
+                <div class="field-group"><label>GitHub</label><input id="p_github" /></div>
+            </div>
+            <div class="field-row full">
+                <div class="field-group"><label>Portfolio</label><input id="p_portfolio" /></div>
+            </div>
+            <div class="section-title" style="margin-top:16px;">Address</div>
+            <div class="field-row full">
+                <div class="field-group"><label>Street</label><input id="p_street" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>City</label><input id="p_city" /></div>
+                <div class="field-group"><label>State</label><input id="p_state" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>Zip</label><input id="p_zip" /></div>
+                <div class="field-group"><label>Country</label><input id="p_country" /></div>
+            </div>
+        </div>
+
+        <!-- Work Authorization -->
+        <div class="section">
+            <div class="section-title">Work Authorization</div>
+            <div class="field-row full">
+                <div class="field-group"><label>Visa Status</label><input id="w_visaStatus" /></div>
+            </div>
+            <div class="toggle-row"><input type="checkbox" id="w_authorized" /><label for="w_authorized">Authorized to work in US</label></div>
+            <div class="toggle-row"><input type="checkbox" id="w_requireSponsorship" /><label for="w_requireSponsorship">Requires sponsorship</label></div>
+            <div class="toggle-row"><input type="checkbox" id="w_willingToRelocate" /><label for="w_willingToRelocate">Willing to relocate</label></div>
+            <div class="toggle-row"><input type="checkbox" id="w_workRemote" /><label for="w_workRemote">Open to remote</label></div>
+            <div class="toggle-row"><input type="checkbox" id="w_workHybrid" /><label for="w_workHybrid">Open to hybrid</label></div>
+            <div class="toggle-row"><input type="checkbox" id="w_workOnsite" /><label for="w_workOnsite">Open to onsite</label></div>
+        </div>
+
+        <!-- Employment -->
+        <div class="section">
+            <div class="section-title">Employment</div>
+            <div class="field-row">
+                <div class="field-group"><label>Current Employer</label><input id="e_currentEmployer" /></div>
+                <div class="field-group"><label>Current Title</label><input id="e_currentTitle" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>Expected Salary</label><input id="e_expectedSalary" /></div>
+                <div class="field-group"><label>Years of Experience</label><input id="e_yearsOfExperience" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>Salary Min</label><input id="e_expectedSalaryMin" /></div>
+                <div class="field-group"><label>Salary Max</label><input id="e_expectedSalaryMax" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>Notice Period (days)</label><input id="e_noticePeriod" /></div>
+                <div class="field-group"><label>Start Date</label><input id="e_startDate" /></div>
+            </div>
+        </div>
+
+        <!-- Education -->
+        <div class="section">
+            <div class="section-title">Education</div>
+            <div class="field-row">
+                <div class="field-group"><label>Degree</label><input id="ed_degree" /></div>
+                <div class="field-group"><label>Field of Study</label><input id="ed_field" /></div>
+            </div>
+            <div class="field-row">
+                <div class="field-group"><label>School</label><input id="ed_school" /></div>
+                <div class="field-group"><label>Graduation Year</label><input id="ed_graduationYear" /></div>
+            </div>
+            <div class="field-row full">
+                <div class="field-group"><label>GPA</label><input id="ed_gpa" /></div>
+            </div>
+        </div>
+
+        <!-- Demographics -->
+        <div class="section">
+            <div class="section-title">Demographics (EEO / Voluntary)</div>
+            <div class="field-row">
+                <div class="field-group"><label>Gender</label>
+                    <select id="d_gender"><option>Male</option><option>Female</option><option>Non-binary</option><option>Prefer not to say</option></select>
+                </div>
+                <div class="field-group"><label>Ethnicity</label>
+                    <select id="d_ethnicity"><option>Asian</option><option>Black</option><option>Hispanic</option><option>White</option><option>Two or more</option><option>Prefer not to say</option></select>
+                </div>
+            </div>
+            <div class="toggle-row"><input type="checkbox" id="d_veteran" /><label for="d_veteran">Veteran</label></div>
+            <div class="toggle-row"><input type="checkbox" id="d_disability" /><label for="d_disability">Disability</label></div>
+            <div class="toggle-row"><input type="checkbox" id="d_hispanicLatino" /><label for="d_hispanicLatino">Hispanic / Latino</label></div>
+        </div>
+
+        <!-- Work History -->
+        <div class="section">
+            <div class="section-title">Work History</div>
+            <div id="workHistoryList"></div>
+            <div class="add-btn" onclick="addWorkEntry()">+ Add Job</div>
+        </div>
+
+        <!-- Common Answers -->
+        <div class="section">
+            <div class="section-title">Common Answers</div>
+            <div class="field-group"><label>Cover Letter</label><textarea id="c_coverLetter"></textarea></div>
+            <div class="field-group"><label>Why This Role</label><textarea id="c_whyThisRole"></textarea></div>
+            <div class="field-group"><label>Availability</label><input id="c_availability" /></div>
+            <div class="field-group"><label>Salary Expectation</label><input id="c_salaryExpectation" /></div>
+            <div class="field-group"><label>References</label><input id="c_references" /></div>
+        </div>
+
+    </div>
+
+    <div class="save-bar">
+        <span class="save-msg" id="saveMsg">Saved!</span>
+        <button class="save-btn" onclick="saveProfile()">Save Profile</button>
+    </div>
+</div>
+
+<script src="/profile-settings.js"></script>
+</body>
+</html>

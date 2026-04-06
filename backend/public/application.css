@@ -952,3 +952,193 @@ label {
         padding: 24px;
     }
 }
+/* =====================================================
+   AUTO APPLY BOT UI
+===================================================== */
+
+/* Live panel */
+.bot-live-panel {
+    margin-top: 20px;
+    border: 3px solid #2c2c2c;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    padding: 0;
+    overflow: hidden;
+}
+
+.bot-live-panel.hidden {
+    display: none;
+}
+
+/* Live header row */
+.live-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border-bottom: 2px solid #333;
+    flex-wrap: wrap;
+}
+
+.live-state {
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #8b5cf6;
+}
+
+.live-page {
+    font-size: 11px;
+    color: #666;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.live-counts {
+    margin-left: auto;
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+}
+
+.count-filled { color: #10b981; }
+.count-flagged { color: #f59e0b; }
+
+/* Controls */
+#livePanelControls {
+    padding: 16px;
+    border-bottom: 2px solid #222;
+}
+
+.control-hint {
+    font-size: 12px;
+    color: #aaa;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.bot-btn {
+    padding: 10px 20px;
+    border: 2px solid;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.bot-btn-confirm {
+    background: #8b5cf6;
+    color: #fff;
+    border-color: #6d28d9;
+}
+
+.bot-btn-confirm:hover { background: #7c3aed; }
+
+.bot-btn-pause {
+    background: #f59e0b;
+    color: #000;
+    border-color: #d97706;
+}
+
+.bot-btn-pause:hover { background: #d97706; }
+
+.bot-btn-stop {
+    background: transparent;
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+.bot-btn-stop:hover { background: #ef4444; color: #fff; }
+
+/* Flagged fields */
+.flagged-list {
+    padding: 12px 16px;
+    border-bottom: 2px solid #222;
+}
+
+.flagged-list.hidden { display: none; }
+
+.flagged-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: #f59e0b;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.flagged-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 12px;
+}
+
+.flagged-label {
+    color: #e0e0e0;
+    font-weight: 700;
+}
+
+.flagged-reason {
+    color: #666;
+    font-size: 11px;
+    text-align: right;
+}
+
+/* Activity log */
+.live-log-header {
+    padding: 8px 16px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #444;
+    background: #111;
+    border-bottom: 1px solid #222;
+}
+
+.live-log {
+    padding: 8px 16px;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.log-entry {
+    font-size: 11px;
+    color: #888;
+    padding: 3px 0;
+    border-bottom: 1px solid #111;
+    letter-spacing: 0.3px;
+}
+
+.log-entry:first-child {
+    color: #c0c0c0;
+}
+
+/* Auto apply modal form groups */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    color: #2c2c2c;
+}

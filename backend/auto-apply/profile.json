@@ -1,0 +1,100 @@
+{
+  "personal": {
+    "fullName": "Lokesh Para",
+    "firstName": "Lokesh",
+    "lastName": "Para",
+    "email": "paralokesh5@gmail.com",
+    "phone": "682-503-1723",
+    "phoneFormatted": "+16825031723",
+    "linkedin": "https://linkedin.com/in/lokeshpara99",
+    "github": "https://github.com/lokeshpara",
+    "portfolio": "https://lokeshpara.github.io/Portfolio",
+    "address": {
+      "street": "1203 Meadow Creek Dr",
+      "city": "Irving",
+      "state": "Texas",
+      "stateCode": "TX",
+      "zip": "75038",
+      "country": "United States",
+      "countryCode": "US"
+    }
+  },
+  "workAuthorization": {
+    "authorized": true,
+    "requireSponsorship": true,
+    "visaStatus": "F-1 OPT/STEM OPT",
+    "willingToRelocate": false,
+    "workRemote": true,
+    "workHybrid": true,
+    "workOnsite": true
+  },
+  "employment": {
+    "currentEmployer": "LPL Financial",
+    "currentTitle": "Java Full Stack Developer",
+    "expectedSalary": "120000",
+    "expectedSalaryMin": "110000",
+    "expectedSalaryMax": "140000",
+    "noticePeriod": "0",
+    "yearsOfExperience": "5",
+    "startDate": "immediately"
+  },
+  "education": {
+    "degree": "Master of Science",
+    "field": "Computer and Information Sciences",
+    "school": "Southern Arkansas University",
+    "graduationYear": "2022",
+    "gpa": "3.9"
+  },
+  "demographics": {
+    "gender": "Male",
+    "ethnicity": "Asian",
+    "veteran": false,
+    "disability": false,
+    "hispanicLatino": false
+  },
+  "workHistory": [
+    {
+      "company": "LPL Financial",
+      "title": "Java Full Stack Developer",
+      "startDate": "June 2025",
+      "endDate": "Present",
+      "current": true,
+      "location": "San Diego, California",
+      "description": "Built portfolio management systems for 19,000+ financial advisors using Java, Spring Boot, Apache Kafka, React, and AWS. Developed RESTful APIs integrating Bloomberg market data feeds for real-time portfolio pricing. Implemented event-driven microservices processing 2M+ daily transactions with 99.9% uptime. Led migration of legacy monolith to microservices architecture using Docker and Kubernetes on AWS EKS."
+    },
+    {
+      "company": "Athenahealth",
+      "title": "Java Full Stack Developer",
+      "startDate": "August 2024",
+      "endDate": "May 2025",
+      "current": false,
+      "location": "Boston, MA",
+      "description": "Developed HIPAA-compliant patient portal using Java, Spring Boot, FHIR R4 APIs, and Angular. Built secure data pipelines for EHR integration handling 500K+ daily patient records. Implemented OAuth2 and JWT authentication reducing unauthorized access incidents by 90%. Designed real-time notifications system using WebSocket and Redis for 2M+ active patients."
+    },
+    {
+      "company": "YES Bank",
+      "title": "Java Full Stack Developer",
+      "startDate": "November 2021",
+      "endDate": "July 2023",
+      "current": false,
+      "location": "Mumbai, India",
+      "description": "Developed digital banking and payments platform processing 5M+ daily transactions using Java, Spring Boot, and Apache Kafka. Built UPI payment integration and NEFT/RTGS transfer modules for mobile banking application. Implemented PCI-DSS compliant payment gateway with 256-bit encryption. Designed React-based dashboard for real-time transaction monitoring and fraud detection."
+    },
+    {
+      "company": "Comcast Corporation",
+      "title": "Java Developer",
+      "startDate": "May 2020",
+      "endDate": "October 2021",
+      "current": false,
+      "location": "Chennai, India",
+      "description": "Built xFi platform features for residential internet management serving 30M+ customers using Java and Spring Boot. Developed device management APIs for network configuration and parental controls. Implemented real-time network diagnostics using WebSocket reducing customer support calls by 35%. Built automated testing suite with JUnit and Mockito achieving 85% code coverage."
+    }
+  ],
+  "commonAnswers": {
+    "coverLetter": "I am writing to express my interest in this position. With 5+ years of experience in Java full-stack development across fintech, healthcare, and telecom domains, I am confident I can add immediate value to your team.",
+    "whyThisRole": "This role aligns perfectly with my expertise in Java, Spring Boot, and cloud technologies. I am eager to contribute to your engineering team.",
+    "availability": "I am available to start within 2 weeks of receiving an offer.",
+    "salaryExpectation": "My expected salary range is $110,000-$140,000 based on the role and responsibilities.",
+    "references": "Available upon request."
+  }
+}

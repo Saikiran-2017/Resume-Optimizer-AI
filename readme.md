@@ -1,690 +1,585 @@
-# Resume Optimizer AI - Chrome Extension with AI & Google Workspace Integration
+# Job Aggregator AI
 
-[![GitHub](https://img.shields.io/github/license/lokeshpara/Resume-Optimizer-AI)](https://github.com/lokeshpara/Resume-Optimizer-AI/blob/main/LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue)](https://chrome.google.com/webstore)
-[![Google Gemini](https://img.shields.io/badge/Google-Gemini_2.0-4285F4)](https://ai.google.dev/)
-[![Stars](https://img.shields.io/github/stars/lokeshpara/Resume-Optimizer-AI)](https://github.com/lokeshpara/Resume-Optimizer-AI/stargazers)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-12+-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-1.58-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension_MV3-4285F4?logo=google-chrome&logoColor=white)](https://developer.chrome.com/docs/extensions/)
+[![Google Gemini](https://img.shields.io/badge/Gemini-2.0_Flash-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-412991?logo=openai&logoColor=white)](https://openai.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**AI-powered resume optimization with automatic Google Drive tracking, PostgreSQL database, recruiter automation, and comprehensive 4-score analysis system**
-
----
-
-## 📋 Table of Contents
-
-1. [Overview](#overview)
-2. [Features](#features)
-3. [Architecture](#architecture)
-4. [Prerequisites](#prerequisites)
-5. [Setup Guide](#setup-guide)
-6. [Usage](#usage)
-7. [API Endpoints](#api-endpoints)
-8. [Database Schema](#database-schema)
-9. [Project Structure](#project-structure)
-10. [Troubleshooting](#troubleshooting)
-11. [Contributing](#contributing)
+**An AI-powered job application platform that optimizes resumes, auto-applies to jobs via an intelligent Playwright bot, tracks applications in PostgreSQL, and automates recruiter outreach — all from a Chrome extension and web dashboard.**
 
 ---
 
-## 🎯 Overview
+## Table of Contents
 
-Resume Optimizer AI is a comprehensive Chrome extension that uses AI (Google Gemini 2.0 or ChatGPT GPT-4) to optimize resumes for specific job descriptions. It automatically:
-
-- **Optimizes resumes** with 8-20 strategic improvements per job
-- **Tracks applications** in PostgreSQL database
-- **Uploads optimized resumes** to Google Drive
-- **Finds recruiters** using AI-powered LinkedIn search
-- **Generates personalized emails** and creates Gmail drafts
-- **Provides 4-score analysis** (Resume-JD Match, Experience-Role Fit, Post-Optimization Potential, Selection Probability)
-
----
-
-## ✨ Features
-
-### Core Features
-
-- **Dual Mode Operation:**
-  - 🌐 **URL Mode**: Automatically fetch job description from any job posting URL
-  - 📝 **Manual Mode**: Paste job description directly (works for authenticated sites like LinkedIn)
-
-- **Multi-AI Provider Support:**
-  - Google Gemini 2.0 Flash (3 API keys for load distribution)
-  - ChatGPT GPT-4 (1-3 API keys for load distribution)
-
-- **Intelligent Resume Optimization:**
-  - ATS score optimization (85-92% target)
-  - Keyword matching from job description
-  - Skills gap analysis
-  - Achievement quantification suggestions
-  - 8-20 specific optimization points per resume
-  - Human-written style (not keyword-stuffed)
-  - Automatic resume type selection (Frontend vs Full Stack)
-
-- **Automatic Tracking:**
-  - PostgreSQL database for application tracking
-  - Uploads optimized resume to Google Drive
-  - Auto-generates filenames: `Lokesh_Para_Position_Company`
-  - Tracks company, position, date, resume link, JD text
-
-- **Professional Output:**
-  - Google Docs format with proper styling
-  - Skills table with proper formatting
-  - Download as PDF, DOCX, or edit in Google Docs
-
-### Advanced Features
-
-- **4-Score Analysis System:**
-  - Resume-JD Match Score
-  - Experience-Role Fit Score
-  - Post-Optimization Potential Score
-  - Selection Probability Score
-
-- **Recruiter Automation:**
-  - AI-powered LinkedIn recruiter search (via SerpAPI)
-  - Top 3 recruiter selection using AI
-  - Email finding via Hunter.io
-  - Personalized email generation
-  - Gmail draft creation
-
-- **Dashboard:**
-  - Application tracking dashboard
-  - KPIs and statistics
-  - Status distribution charts
-  - Recent activity feed
-  - Notes and contacts management
+- [Architecture Overview](#architecture-overview)
+- [System Architecture Diagram](#system-architecture-diagram)
+- [Resume Optimization Flow](#resume-optimization-flow)
+- [Auto-Apply Bot Flow](#auto-apply-bot-flow)
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+  - [1. Clone the Repository](#1-clone-the-repository)
+  - [2. Install Dependencies](#2-install-dependencies)
+  - [3. Set Up PostgreSQL](#3-set-up-postgresql)
+  - [4. Configure Environment Variables](#4-configure-environment-variables)
+  - [5. Set Up Google Cloud APIs](#5-set-up-google-cloud-apis)
+  - [6. Generate OAuth Refresh Tokens](#6-generate-oauth-refresh-tokens)
+  - [7. Start the Servers](#7-start-the-servers)
+  - [8. Load the Chrome Extension](#8-load-the-chrome-extension)
+- [API Reference](#api-reference)
+- [Database Schema](#database-schema)
+- [Environment Variables Reference](#environment-variables-reference)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## 🏗️ Architecture
+## Architecture Overview
 
-### System Components
+The system is composed of four main layers:
+
+| Layer | Components | Purpose |
+|-------|-----------|---------|
+| **Client** | Chrome Extension (MV3), Web Dashboard | User interface for optimization, analysis, tracking, and bot control |
+| **Backend** | Express 5 server (port 3000), Analysis server (port 3001) | REST APIs, WebSocket, static file serving, OAuth flows |
+| **Auto-Apply Bot** | Playwright Chromium, AI Agent, ATS handlers | Automated job application with ATS-specific form filling |
+| **Data & Services** | PostgreSQL, Google APIs, AI providers, external APIs | Persistence, document management, AI processing, recruiter discovery |
+
+### Key Architectural Decisions
+
+- **Monolithic Express server** — single `server.js` handles all API routes, simplifying deployment
+- **WebSocket for real-time updates** — the auto-apply bot streams state changes to the dashboard via `/ws/auto-apply`
+- **ATS-specific handlers** — dedicated modules for Workday, Greenhouse, and a generic fallback with AI-driven form analysis
+- **Dual OAuth clients** — separate Google and Gmail OAuth flows allow using different accounts for docs vs. email
+- **Checkpoint system** — long-running optimizations are checkpointed to PostgreSQL and can be resumed after interruption
+
+---
+
+## System Architecture Diagram
+
+<p align="center">
+  <img src="docs/architecture-diagram.svg" alt="System Architecture Diagram" width="100%"/>
+</p>
+
+---
+
+## Resume Optimization Flow
+
+<p align="center">
+  <img src="docs/resume-optimization-flow.svg" alt="Resume Optimization Flow" width="100%"/>
+</p>
+
+**Steps:**
+
+1. **User Input** — Job URL or manual JD text + AI provider keys via Chrome Extension or web UI
+2. **JD Extraction** — Playwright fetches the URL; AI parses the job description into structured data
+3. **Company Context** — Tavily API + Jina Reader fetch company tech stack and culture information
+4. **AI Optimization** — Gemini 2.0 Flash or GPT-4 rewrites the resume targeting 85-92% ATS score with 8-20 improvements
+5. **Google Docs** — Creates a new formatted Google Doc with skills table and professional styling
+6. **Google Drive** — Uploads to a designated folder with naming convention `Name_Position_Company`
+7. **PostgreSQL** — Records the application with company, position, resume link, and JD text
+8. **Tracking Sheet** — Appends a row to a Google Sheets tracking spreadsheet
+9. **Response** — Returns the resume link and metadata to the extension/dashboard
+
+---
+
+## Auto-Apply Bot Flow
+
+<p align="center">
+  <img src="docs/auto-apply-flow.svg" alt="Auto-Apply Bot Flow" width="100%"/>
+</p>
+
+**Steps:**
+
+1. **Trigger** — User clicks "Start Bot" on the dashboard, providing a job URL and profile config
+2. **Pipeline** — `pipeline.js` launches a Playwright Chromium browser and loads the user profile
+3. **ATS Detection** — `detector.js` identifies the applicant tracking system (Workday, Greenhouse, or generic)
+4. **Navigation** — Finds and clicks the "Apply" button to reach the application form
+5. **Page Scanning** — `page-scanner.js` discovers all form fields, labels, and input types
+6. **Field Mapping** — `field-ai.js` uses AI to map `profile.json` data to the detected fields
+7. **Field Filling** — `field-filler.js` types text, selects options, uploads files, and checks boxes
+8. **AI Agent Loop** — `ai-agent.js` + `agent-executor.js` run an agentic read-plan-execute-verify loop for complex pages
+9. **State Broadcasting** — `bot-state.js` emits state transitions over WebSocket to the live dashboard
+10. **Persistence** — Session data is saved to the `bot_sessions` PostgreSQL table
+
+---
+
+## Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| **Runtime** | Node.js 18+ |
+| **Web Framework** | Express 5 |
+| **Database** | PostgreSQL 12+ |
+| **Browser Automation** | Playwright (Chromium) |
+| **Real-time** | WebSocket (`ws` library) |
+| **AI Providers** | Google Gemini 2.0 Flash, OpenAI GPT-4 / GPT-4.1-mini |
+| **Google APIs** | Docs, Drive, Sheets, Gmail (OAuth 2.0) |
+| **External APIs** | SerpAPI (LinkedIn search), Hunter.io (email discovery), Tavily (company research), Jina Reader (web content) |
+| **Chrome Extension** | Manifest V3, Service Worker |
+| **Frontend** | Vanilla HTML5/CSS3/JS, Chart.js |
+| **Package Manager** | npm |
+
+---
+
+## Features
+
+### Resume Optimization
+- Dual-mode input: URL auto-fetch (Playwright) or manual JD paste
+- Multi-AI provider support (Gemini / ChatGPT) with key rotation
+- ATS-optimized rewriting with 8-20 strategic improvements per resume
+- Automatic Google Docs creation with professional formatting
+- Google Drive upload and Google Sheets tracking
+- Checkpointed sessions for long-running optimizations
+
+### 4-Score Analysis
+- Resume-JD Match Score
+- Experience-Role Fit Score
+- Post-Optimization Potential Score
+- Selection Probability Score
+
+### Auto-Apply Bot
+- Playwright-powered browser automation (non-headless)
+- ATS detection and routing (Workday, Greenhouse, Generic/Lever)
+- AI-driven form field discovery and filling
+- Agentic loop for complex multi-step forms
+- Real-time state machine with WebSocket live updates
+- Resume PDF download from Google Docs
+
+### Application Tracking (CRM)
+- Full CRUD for applications, notes, and contacts
+- Dashboard with KPIs, daily charts, and status distribution
+- Full-text search with PostgreSQL tsvector
+- CSV export
+
+### Recruiter Automation
+- SerpAPI LinkedIn search for company recruiters
+- AI-powered top-3 recruiter selection
+- Hunter.io email discovery
+- Personalized email generation
+- Gmail draft creation
+
+### Chrome Extension
+- Manifest V3 with background service worker
+- Analyze vs. Optimize mode selection
+- Per-extension AI key storage
+- Opens as a standalone window for persistent interaction
+
+---
+
+## Project Structure
 
 ```
-┌─────────────────┐
-│ Chrome Extension│
-│  (popup.js)     │
-└────────┬────────┘
-         │ HTTP Requests
-         ▼
-┌─────────────────────────────────────┐
-│   Backend Server (Port 3000)       │
-│   - Resume Optimization            │
-│   - Google Drive Integration        │
-│   - PostgreSQL Database             │
-│   - Recruiter Automation            │
-└────────┬────────────────────────────┘
-         │
-         ├──► Google APIs (Docs, Drive, Sheets, Gmail)
-         ├──► AI APIs (Gemini/ChatGPT)
-         ├──► PostgreSQL Database
-         ├──► Hunter.io API
-         └──► SerpAPI
-         │
-┌────────▼────────────────────────────┐
-│   Analysis Server (Port 3001)       │
-│   - 4-Score Analysis                │
-│   - Resume Analysis                 │
-└─────────────────────────────────────┘
+job-aggregator-ai/
+├── backend/
+│   ├── auto-apply/                  # Auto-apply bot modules
+│   │   ├── routes.js                # /api/auto-apply/* REST endpoints
+│   │   ├── pipeline.js              # Orchestrator: Playwright + ATS dispatch
+│   │   ├── detector.js              # ATS type detection
+│   │   ├── bot-state.js             # State machine + EventEmitter
+│   │   ├── page-scanner.js          # DOM field discovery
+│   │   ├── page-reader.js           # Readable page snapshots
+│   │   ├── field-ai.js              # AI field mapping
+│   │   ├── field-filler.js          # Form interaction (type, select, upload)
+│   │   ├── ai-agent.js              # Agentic loop controller
+│   │   ├── agent-executor.js        # Action executor
+│   │   ├── ats/
+│   │   │   ├── workday.js           # Workday-specific handler
+│   │   │   ├── greenhouse.js        # Greenhouse-specific handler
+│   │   │   ├── lever.js             # Lever-specific handler
+│   │   │   └── generic.js           # Generic/fallback handler
+│   │   └── profile.json             # Default user profile data
+│   ├── public/                      # Static web UI
+│   │   ├── dashboard.html/js/css    # Dashboard — KPIs, charts, app list
+│   │   ├── application.html/js/css  # Application detail — notes, contacts
+│   │   ├── auto-apply.html/js/css   # Auto-apply control panel
+│   │   ├── auto-apply-live.html     # Live bot monitoring view
+│   │   ├── profile-settings.html/js # Bot profile editor
+│   │   └── ...
+│   ├── server.js                    # Main Express server (port 3000)
+│   ├── server-analysis.js           # Analysis server (port 3001)
+│   ├── checkpoint.js                # Optimization checkpoint system
+│   ├── company-context.js           # Tavily + Jina company research
+│   ├── recruiter-automation-v2.js   # SerpAPI + Hunter + Gmail automation
+│   ├── get-token.js                 # OAuth refresh token generator
+│   ├── package.json                 # Dependencies
+│   └── .env                         # Environment variables (not committed)
+├── extension/                       # Chrome Extension (Manifest V3)
+│   ├── manifest.json                # Extension configuration
+│   ├── background.js                # Service worker
+│   ├── popup.html/js                # Main popup UI
+│   ├── options.html/js              # Settings page
+│   ├── results.html/js              # Analysis results
+│   ├── styles.css                   # Extension styles
+│   └── icons/                       # Extension icons
+├── docs/                            # Documentation assets
+│   ├── architecture-diagram.svg     # System architecture diagram
+│   ├── resume-optimization-flow.svg # Optimization pipeline flow
+│   └── auto-apply-flow.svg          # Auto-apply bot flow
+├── .gitignore
+└── README.md
 ```
 
-### Technology Stack
+---
 
-- **Frontend:** Chrome Extension (Manifest V3), HTML5, CSS3, JavaScript
-- **Backend:** Node.js, Express.js
-- **Database:** PostgreSQL
-- **APIs:** Google Docs API, Google Drive API, Google Sheets API, Gmail API
-- **AI:** Google Gemini 2.0 Flash / OpenAI GPT-4
-- **External Services:** Hunter.io, SerpAPI
+## Prerequisites
+
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| [Node.js](https://nodejs.org/) | >= 18.0 | Runtime |
+| [PostgreSQL](https://www.postgresql.org/download/) | >= 12 | Application database |
+| [Google Chrome](https://www.google.com/chrome/) | Latest | Extension host |
+| [Google Cloud Project](https://console.cloud.google.com/) | — | OAuth + API access |
+| AI API Key | — | Google Gemini or OpenAI |
+
+**Optional:**
+- [Hunter.io](https://hunter.io/) API key — recruiter email discovery
+- [SerpAPI](https://serpapi.com/) key — LinkedIn recruiter search
+- [Tavily](https://tavily.com/) API key — company context research
 
 ---
 
-## 🔧 Prerequisites
+## Getting Started
 
-- **Node.js** (v14 or higher) - [Download](https://nodejs.org/)
-- **PostgreSQL** (v12 or higher) - [Download](https://www.postgresql.org/download/)
-- **Google Account** (for Google Cloud APIs)
-- **Chrome Browser** (for extension)
-- **AI API Keys:**
-  - Either 3 Google Gemini API keys OR
-  - 1-3 OpenAI ChatGPT API keys
-- **Optional APIs:**
-  - Hunter.io API key (for recruiter email finding)
-  - SerpAPI key (for LinkedIn recruiter search)
-
----
-
-## 🚀 Setup Guide
-
-### Part 1: Google Cloud Console Setup
-
-#### Step 1.1: Create Google Cloud Project
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Click **"Select a project"** → **"NEW PROJECT"**
-3. **Project name:** `Resume Optimizer`
-4. Click **"CREATE"**
-5. Wait for project creation, then select it
-
-#### Step 1.2: Enable Required APIs
-
-Enable these APIs (click each link and press "ENABLE"):
-
-1. [Google Docs API](https://console.cloud.google.com/apis/library/docs.googleapis.com)
-2. [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com)
-3. [Google Sheets API](https://console.cloud.google.com/apis/library/sheets.googleapis.com)
-4. [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com)
-5. [Generative Language API](https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com) *(if using Gemini)*
-
-**Wait 2-3 minutes** after enabling for APIs to activate.
-
-#### Step 1.3: Create OAuth 2.0 Credentials
-
-1. Go to [Credentials Page](https://console.cloud.google.com/apis/credentials)
-2. Click **"+ CREATE CREDENTIALS"** → **"OAuth client ID"**
-3. If prompted, configure OAuth consent screen:
-   - User Type: **External**
-   - App name: `Resume Optimizer`
-   - User support email: Your email
-   - Developer email: Your email
-   - Click **"SAVE AND CONTINUE"**
-   - Scopes: Skip (click **"SAVE AND CONTINUE"**)
-   - Test users: **Add your email** (Click "+ ADD USERS")
-   - Click **"SAVE AND CONTINUE"**
-
-4. Create OAuth Client:
-   - Application type: **Desktop app** (IMPORTANT!)
-   - Name: `Resume Optimizer`
-   - Click **"CREATE"**
-
-5. **Download JSON** or note down Client ID & Client Secret
-
-#### Step 1.4: Create Separate Gmail OAuth (for Recruiter Emails)
-
-Repeat Step 1.3 to create a **second OAuth client** specifically for Gmail (use different name like "Resume Optimizer Gmail"). This allows using a separate Google account for sending recruiter emails.
-
----
-
-### Part 2: Get API Keys
-
-#### Option A: Google Gemini (Recommended - Free Tier Available)
-
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Click **"Create API Key"**
-3. Select your project: `Resume Optimizer`
-4. Copy the API key (starts with `AIzaSy...`)
-5. **Repeat 2 more times** to get 3 total API keys
-
-**Save these 3 keys** - you'll need them later.
-
-#### Option B: OpenAI ChatGPT
-
-1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Click **"Create new secret key"**
-3. Name: `Resume Optimizer`
-4. Copy the key (starts with `sk-...`)
-5. **Optional:** Create 2 more keys for load distribution
-
-**Save these keys** - they won't be shown again.
-
-#### Optional: Hunter.io API Key
-
-1. Go to [Hunter.io](https://hunter.io/)
-2. Sign up for free account
-3. Get API key from dashboard
-4. Free tier: 25 searches/month
-
-#### Optional: SerpAPI Key
-
-1. Go to [SerpAPI](https://serpapi.com/)
-2. Sign up for free account
-3. Get API key from dashboard
-4. Free tier: 100 searches/month
-
----
-
-### Part 3: Database Setup
-
-#### Step 3.1: Install PostgreSQL
-
-Install PostgreSQL on your system if not already installed.
-
-#### Step 3.2: Create Database
+### 1. Clone the Repository
 
 ```bash
-# Connect to PostgreSQL
-psql -U postgres
-
-# Create database
-CREATE DATABASE resume_optimizer;
-
-# Connect to database
-\c resume_optimizer
----
+git clone https://gitlab.com/surendra.velpula3-group/job-aggregator-ui.git
+cd job-aggregator-ui
 ```
-### Part 4: Backend Setup
 
-#### Step 4.1: Install Dependencies
+### 2. Install Dependencies
 
 ```bash
 cd backend
 npm install
 ```
 
-#### Step 4.2: Generate Refresh Tokens
+This installs Playwright as well. To also install browser binaries:
+
+```bash
+npx playwright install chromium
+```
+
+### 3. Set Up PostgreSQL
+
+```bash
+# Connect to PostgreSQL
+psql -U postgres
+
+# Create the database
+CREATE DATABASE resume_optimizer;
+
+# Exit
+\q
+```
+
+> The application auto-creates all required tables (`applications`, `notes`, `contacts`, `application_contacts`, `optimization_checkpoints`, `bot_sessions`) on first startup.
+
+### 4. Configure Environment Variables
+
+Create `backend/.env` from the template below:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Or create it manually — see [Environment Variables Reference](#environment-variables-reference) for all variables.
+
+**Minimal `.env` for resume optimization:**
+
+```env
+# Database
+DATABASE_URL=postgresql://username:password@localhost:5432/resume_optimizer
+
+# Google OAuth (Docs/Drive/Sheets)
+GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-your_secret
+GOOGLE_REFRESH_TOKEN=1//your_refresh_token
+
+# Resume Document IDs (Google Docs)
+FRONTEND_RESUME_DOC_ID=your_frontend_resume_doc_id
+FULLSTACK_RESUME_DOC_ID=your_fullstack_resume_doc_id
+
+# Google Drive folder for optimized resumes
+DRIVE_FOLDER_ID=your_drive_folder_id
+
+# AI Provider (gemini or openai)
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_key
+# Or for OpenAI:
+# CHATGPT_API_KEY=your_openai_key
+```
+
+### 5. Set Up Google Cloud APIs
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project
+2. Enable these APIs:
+   - [Google Docs API](https://console.cloud.google.com/apis/library/docs.googleapis.com)
+   - [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com)
+   - [Google Sheets API](https://console.cloud.google.com/apis/library/sheets.googleapis.com)
+   - [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com)
+3. Create **OAuth 2.0 Client ID** (Application type: **Desktop app**)
+4. Download the credentials or note Client ID and Client Secret
+5. (Optional) Create a second OAuth client for Gmail if using a separate account
+
+### 6. Generate OAuth Refresh Tokens
 
 **For Google Docs/Drive/Sheets:**
 
-1. Create `backend/.env` file:
 ```bash
-GOOGLE_CLIENT_ID=your_client_id_here
-GOOGLE_CLIENT_SECRET=your_client_secret_here
-```
-
-2. Run token generator:
-```bash
+cd backend
 node get-token.js
 ```
 
-3. Follow the prompts to get refresh token
+Follow the prompts — this opens a browser for authorization and prints the refresh token.
 
-**For Gmail (Separate Account):**
+**For Gmail (separate account):**
 
-1. Update `.env` with Gmail OAuth credentials:
-```bash
-GMAIL_CLIENT_ID=your_gmail_client_id_here
-GMAIL_CLIENT_SECRET=your_gmail_client_secret_here
-```
+1. Add `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` to `.env`
+2. Start the server: `node server.js`
+3. Visit: `http://localhost:3000/auth/gmail`
+4. Authorize and copy the refresh token to `GMAIL_REFRESH_TOKEN` in `.env`
 
-2. Visit: `http://localhost:3000/auth/gmail`
-3. Authorize and copy the refresh token
+### 7. Start the Servers
 
-#### Step 4.3: Prepare Google Drive & Docs
+**Terminal 1 — Main Server (port 3000):**
 
-**Create Google Drive Folder:**
-
-1. Go to [Google Drive](https://drive.google.com/)
-2. Click **"New"** → **"Folder"**
-3. Name: `Optimized Resumes`
-4. Open the folder
-5. Copy **Folder ID** from URL:
-```
-https://drive.google.com/drive/folders/1ABC123XYZ
-                                    ↑________↑
-                                    This is the ID
-```
-
-**Upload Your Original Resumes:**
-
-1. Go to [Google Docs](https://docs.google.com/)
-2. Upload your **Frontend Resume** (if applicable)
-3. Upload your **Full Stack Resume**
-4. **Open with Google Docs** (if they're Word files)
-5. Copy **Document IDs** from URLs:
-```
-https://docs.google.com/document/d/13oOMXjl7zBWIujaxtdZ9e6w73IqjqP0m/edit
-                                    ↑_____________________________↑
-                                    This is the Document ID
-```
-
-#### Step 4.4: Configure Environment Variables
-
-**Update `backend/.env` with all credentials:**
-
-```bash
-# Google OAuth Credentials (for Docs/Drive/Sheets)
-GOOGLE_CLIENT_ID=123456789-abc.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-abc123xyz
-GOOGLE_REFRESH_TOKEN=1//014zRHbtissieCgYIARAAGAESNwF-L9IrCdJ5K_5...
-
-# Gmail OAuth Credentials (separate account for recruiter emails)
-GMAIL_CLIENT_ID=123456789-xyz.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=GOCSPX-xyz789abc
-GMAIL_REFRESH_TOKEN=1//014zRHbtissieCgYIARAAGAESNwF-L9IrCdJ5K_5...
-
-# Google Drive & Docs
-FRONTEND_RESUME_DOC_ID=13oOMXjl7zBWIujaxtdZ9e6w73IqjqP0m
-FULLSTACK_RESUME_DOC_ID=14pPNYkm8zCXJkvjaxtdZ9e6w73IqjqP0n
-DRIVE_FOLDER_ID=1zpd8t-2FtpK3ZRhdpnn0cuDp-a5lgv9q
-
-# PostgreSQL Database
-DATABASE_URL=postgresql://username:password@localhost:5432/resume_optimizer
-
-# Optional: Hunter.io API (for recruiter email finding)
-HUNTER_API_KEY=your_hunter_api_key_here
-
-# Optional: SerpAPI (for LinkedIn recruiter search)
-SERP_API_KEY=your_serpapi_key_here
-
-# Optional: AI Provider (defaults to gemini)
-AI_PROVIDER=gemini
-```
-
-**⚠️ Important:** Replace ALL placeholder values with your actual IDs and keys!
-
-#### Step 4.5: Start Backend Servers
-
-**Terminal 1 - Main Server (Port 3000):**
 ```bash
 cd backend
 node server.js
 ```
 
-**Terminal 2 - Analysis Server (Port 3001):**
+Expected output:
+
+```
+Resume Optimizer Backend Running!
+http://localhost:3000
+Health: http://localhost:3000/health
+Supports: Gemini AI & ChatGPT
+```
+
+**Terminal 2 — Analysis Server (port 3001):** *(optional, for 4-score analysis)*
+
 ```bash
 cd backend
 node server-analysis.js
 ```
 
-You should see:
-```
-🚀 Resume Optimizer Backend Running!
-📍 http://localhost:3000
-✅ Health: http://localhost:3000/health
-🤖 Supports: Gemini AI & ChatGPT
-
-📊 Resume Analysis Server Running!
-📍 http://localhost:3001
-✅ Health: http://localhost:3001/health
-```
-
----
-
-### Part 5: Chrome Extension Setup
-
-#### Step 5.1: Load Extension in Chrome
-
-1. Open Chrome
-2. Go to `chrome://extensions/`
-3. Enable **"Developer mode"** (top right toggle)
-4. Click **"Load unpacked"**
-5. Select your `extension/` folder
-6. Extension should appear with your icon
-
-#### Step 5.2: Configure Extension Settings
-
-1. Click extension icon in Chrome
-2. Click **"Settings"** (⚙️)
-3. **Select AI Provider:**
-   - Choose "Google Gemini" or "ChatGPT"
-4. **Enter API Keys:**
-   - If Gemini: Paste all 3 API keys
-   - If ChatGPT: Paste 1-3 API keys
-5. Click **"Save Settings"**
-6. Should see: ✅ Settings saved!
-
----
-
-## 📖 Usage
-
-### Basic Workflow
+Expected output:
 
 ```
-1. Navigate to job posting OR prepare JD text
-   ↓
-2. Click extension icon
-   ↓
-3. Choose action:
-   - 📊 Analyze Resume (4-score analysis)
-   - 🚀 Optimize Resume (create optimized version)
-   ↓
-4. Choose mode:
-   - 🌐 Fetch from URL (for accessible sites)
-   - 📝 Manual Input (for LinkedIn, authenticated sites)
-   ↓
-5. Click "Optimize Resume" or "Analyze Resume"
-   ↓
-6. Wait 30-60 seconds
-   ↓
-7. Get results:
-   - Optimized resume auto-uploaded to Google Drive
-   - Application logged to PostgreSQL database
-   - Download as PDF/DOCX
-   - (Optional) Recruiter emails created in Gmail
+Resume Analysis Server Running!
+http://localhost:3001
+Health: http://localhost:3001/health
 ```
 
-### Mode Selection
-
-**Use URL Mode when:**
-- Job posting is publicly accessible
-- Sites like Indeed, Greenhouse, Lever
-- No login required
-
-**Use Manual Mode when:**
-- LinkedIn (requires login)
-- Company career portals with authentication
-- Any 403/blocked URLs
-- Want to customize the JD text
-
-### Recruiter Automation
-
-1. Open dashboard: `http://localhost:3000/dashboard`
-2. Find an application
-3. Click "Find Recruiters"
-4. System will:
-   - Search LinkedIn for company recruiters
-   - AI selects top 3 best matches
-   - Find emails via Hunter.io
-   - Generate personalized emails
-   - Create Gmail drafts
-
----
-
-## 🔌 API Endpoints
-
-### Main Server (Port 3000)
-
-#### Resume Optimization
-- `POST /api/optimize-resume` - Optimize resume for job description
-  - Body: `{ jobUrl, manualJobDescription, aiProvider, geminiKey1-3, chatgptApiKey }`
-  - Returns: Optimized resume link, company, position, optimization points
-
-#### Applications
-- `GET /api/applications` - Get all applications (with filters)
-  - Query params: `status`, `days`, `search`
-- `GET /api/applications/:id` - Get single application
-- `PUT /api/applications/:id` - Update application
-- `DELETE /api/applications/:id` - Delete application
-
-#### Dashboard
-- `GET /api/dashboard/summary` - Get KPIs
-- `GET /api/dashboard/daily` - Daily application count (30 days)
-- `GET /api/dashboard/status-dist` - Status distribution
-- `GET /api/dashboard/recent` - Recent activity
-
-#### Notes
-- `GET /api/applications/:id/notes` - Get notes for application
-- `POST /api/applications/:id/notes` - Add note
-- `DELETE /api/notes/:noteId` - Delete note
-
-#### Contacts
-- `GET /api/applications/:id/contacts` - Get contacts for application
-- `POST /api/applications/:id/contacts` - Create contact and link
-- `GET /api/contacts/:id` - Get single contact
-- `PUT /api/contacts/:id` - Update contact
-- `DELETE /api/applications/:appId/contacts/:contactId` - Unlink and delete
-
-#### Recruiter Automation
-- `POST /api/applications/:id/find-recruiters` - Find recruiters and create email drafts
-- `GET /api/gmail-drafts` - Get Gmail drafts
-- `POST /api/test/hunter` - Test Hunter.io API
-- `POST /api/test/gmail` - Test Gmail API
-
-#### Export
-- `GET /api/export/csv` - Export applications as CSV
-
-#### Health
-- `GET /health` - Server health check
-
-### Analysis Server (Port 3001)
-
-#### Resume Analysis
-- `POST /api/analyze-resume` - 4-score analysis
-  - Body: `{ jobUrl, manualJobDescription, aiProvider, geminiKey1-3, chatgptApiKey }`
-  - Returns: 4 scores, detailed reports, summary
-
-#### Health
-- `GET /health` - Server health check
-
----
-
-## 🗄️ Database Schema
-
-### Tables
-
-**applications**
-- `id` (SERIAL PRIMARY KEY)
-- `company_name` (VARCHAR)
-- `position_applied` (VARCHAR)
-- `date_applied` (DATE)
-- `status` (VARCHAR) - Applied, Interview, Offer, Rejected
-- `resume_link` (TEXT)
-- `jd_link` (TEXT)
-- `jd_text` (TEXT)
-- `created_at` (TIMESTAMP)
-- `updated_at` (TIMESTAMP)
-- `search_vector` (TSVECTOR) - For full-text search
-
-**notes**
-- `id` (SERIAL PRIMARY KEY)
-- `application_id` (INTEGER) - FK to applications
-- `note_text` (TEXT)
-- `created_at` (TIMESTAMP)
-
-**contacts**
-- `id` (SERIAL PRIMARY KEY)
-- `full_name` (VARCHAR)
-- `email` (VARCHAR UNIQUE)
-- `linkedin_url` (TEXT)
-- `role` (VARCHAR)
-- `notes` (TEXT)
-- `created_at` (TIMESTAMP)
-
-**application_contacts**
-- `application_id` (INTEGER) - FK to applications
-- `contact_id` (INTEGER) - FK to contacts
-- PRIMARY KEY (application_id, contact_id)
-
----
-
-## 📁 Project Structure
-
-```
-Resume-Optimizer-AI/
-├── backend/
-│   ├── node_modules/
-│   ├── public/
-│   │   ├── dashboard.html          # Dashboard UI
-│   │   ├── dashboard.js            # Dashboard logic
-│   │   ├── dashboard.css           # Dashboard styles
-│   │   ├── application.html        # Application details UI
-│   │   ├── application.js          # Application details logic
-│   │   └── application.css         # Application styles
-│   ├── .env                        # Environment variables (KEEP SECRET!)
-│   ├── server.js                   # Main backend server (Port 3000)
-│   ├── server-analysis.js          # Analysis server (Port 3001)
-│   ├── get-token.js               # OAuth token generator
-│   ├── recruiter-automation-v2.js # Recruiter finder & email automation
-│   ├── package.json               # Dependencies
-│   └── package-lock.json
-│
-└── extension/
-    ├── icons/
-    │   ├── icon16.png
-    │   ├── icon48.png
-    │   └── icon128.png
-    ├── manifest.json               # Extension configuration
-    ├── popup.html                  # Main popup UI
-    ├── popup.js                    # Popup logic
-    ├── options.html                # Settings page UI
-    ├── options.js                  # Settings page logic
-    ├── results.html                # Analysis results page
-    ├── results.js                  # Results page logic
-    └── styles.css                  # Extension styles
-```
-
----
-
-## 🚀 Quick Start Commands
+**Verify:**
 
 ```bash
-# Start backend servers
-cd backend
-node server.js              # Terminal 1 (Port 3000)
-node server-analysis.js      # Terminal 2 (Port 3001)
+curl http://localhost:3000/health
+```
 
-# Keep terminals open, then use Chrome extension!
+### 8. Load the Chrome Extension
+
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in top right)
+3. Click **Load unpacked**
+4. Select the `extension/` folder
+5. Click the extension icon and configure AI API keys in **Settings**
+
+### Using the Application
+
+| Action | URL / Method |
+|--------|-------------|
+| **Dashboard** | `http://localhost:3000/dashboard` |
+| **Application Detail** | `http://localhost:3000/application/:id` |
+| **Auto-Apply Control** | `http://localhost:3000/auto-apply` |
+| **Auto-Apply Live View** | `http://localhost:3000/auto-apply/live` |
+| **Profile Settings** | `http://localhost:3000/profile-settings` |
+| **Optimize Resume** | Chrome Extension → Optimize |
+| **Analyze Resume** | Chrome Extension → Analyze |
+
+---
+
+## API Reference
+
+### Main Server — Port 3000
+
+#### Resume Optimization
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/optimize-resume` | Optimize resume for a job description |
+| `GET` | `/api/optimize-resume/session/:sessionId` | Get checkpoint status for a session |
+| `POST` | `/api/batch-optimize` | Batch optimize multiple resumes |
+
+#### Applications (CRUD)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/applications` | List applications (filter: `status`, `days`, `search`) |
+| `GET` | `/api/applications/:id` | Get single application |
+| `PUT` | `/api/applications/:id` | Update application |
+| `DELETE` | `/api/applications/:id` | Delete application |
+
+#### Dashboard
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/dashboard/summary` | KPI summary |
+| `GET` | `/api/dashboard/daily` | Daily application count (30 days) |
+| `GET` | `/api/dashboard/status-dist` | Status distribution |
+| `GET` | `/api/dashboard/recent` | Recent activity |
+
+#### Notes & Contacts
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/applications/:id/notes` | Get notes |
+| `POST` | `/api/applications/:id/notes` | Add note |
+| `DELETE` | `/api/notes/:noteId` | Delete note |
+| `GET` | `/api/applications/:id/contacts` | Get contacts |
+| `POST` | `/api/applications/:id/contacts` | Create & link contact |
+| `PUT` | `/api/contacts/:id` | Update contact |
+| `DELETE` | `/api/applications/:appId/contacts/:contactId` | Delete contact |
+
+#### Recruiter Automation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/applications/:id/find-recruiters` | Find recruiters & create email drafts |
+| `GET` | `/api/gmail-drafts` | List Gmail drafts |
+
+#### Auto-Apply Bot
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/auto-apply/status` | Current bot status |
+| `POST` | `/api/auto-apply/start` | Start auto-apply for a job URL |
+| `POST` | `/api/auto-apply/confirm` | Confirm submission |
+| `POST` | `/api/auto-apply/pause` | Pause bot |
+| `POST` | `/api/auto-apply/resume` | Resume bot |
+| `POST` | `/api/auto-apply/stop` | Stop bot |
+| `GET` | `/api/auto-apply/sessions` | List bot sessions |
+| `GET` | `/api/auto-apply/session/:id` | Get session detail |
+| `GET` | `/api/auto-apply/profile` | Get user profile |
+| `POST` | `/api/auto-apply/profile` | Update user profile |
+
+#### Other
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/api/export/csv` | Export applications as CSV |
+| `GET` | `/auth/gmail` | Start Gmail OAuth flow |
+
+### Analysis Server — Port 3001
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/analyze-resume` | 4-score resume analysis |
+| `GET` | `/health` | Health check |
+
+### WebSocket
+
+| Endpoint | Description |
+|----------|-------------|
+| `ws://localhost:3000/ws/auto-apply` | Real-time bot state updates (JSON messages) |
+
+---
+
+## Database Schema
+
+```
+┌──────────────────────────┐       ┌──────────────────────────┐
+│      applications        │       │         notes            │
+├──────────────────────────┤       ├──────────────────────────┤
+│ id          SERIAL PK    │──┐    │ id             SERIAL PK │
+│ company_name VARCHAR     │  │    │ application_id INTEGER FK │
+│ position_applied VARCHAR │  ├───>│ note_text      TEXT      │
+│ date_applied DATE        │  │    │ created_at     TIMESTAMP │
+│ status       VARCHAR     │  │    └──────────────────────────┘
+│ resume_link  TEXT        │  │
+│ jd_link      TEXT        │  │    ┌──────────────────────────┐
+│ jd_text      TEXT        │  │    │   application_contacts   │
+│ search_vector TSVECTOR   │  │    ├──────────────────────────┤
+│ created_at   TIMESTAMP   │  ├───>│ application_id INTEGER FK│
+│ updated_at   TIMESTAMP   │  │    │ contact_id     INTEGER FK│──┐
+└──────────────────────────┘  │    │ PRIMARY KEY (app, contact)│  │
+                              │    └──────────────────────────┘  │
+┌──────────────────────────┐  │                                  │
+│ optimization_checkpoints │  │    ┌──────────────────────────┐  │
+├──────────────────────────┤  │    │        contacts          │  │
+│ session_id   TEXT PK     │  │    ├──────────────────────────┤  │
+│ step         TEXT        │  │    │ id          SERIAL PK    │<─┘
+│ data         JSONB       │  │    │ full_name   VARCHAR      │
+│ created_at   TIMESTAMP   │  │    │ email       VARCHAR UQ   │
+│ updated_at   TIMESTAMP   │  │    │ linkedin_url TEXT        │
+└──────────────────────────┘  │    │ role        VARCHAR      │
+                              │    │ notes       TEXT         │
+┌──────────────────────────┐  │    │ created_at  TIMESTAMP    │
+│      bot_sessions        │  │    └──────────────────────────┘
+├──────────────────────────┤  │
+│ id          SERIAL PK    │  │
+│ job_url     TEXT         │  │
+│ status      VARCHAR      │  │
+│ logs        JSONB        │  │
+│ created_at  TIMESTAMP    │  │
+│ updated_at  TIMESTAMP    │  │
+└──────────────────────────┘  │
 ```
 
 ---
 
-## 💡 Tips
+## Environment Variables Reference
 
-1. **Test with simple job first** - Use manual mode with short JD for first test
-2. **Check database** - Verify entries are being logged correctly
-3. **Keep servers running** - Don't close terminals while using extension
-4. **Use Indeed/Greenhouse** - These sites work well with URL mode
-5. **LinkedIn = Manual mode** - Always use manual input for LinkedIn
-6. **Monitor API usage** - Track your AI API key usage to avoid rate limits
-7. **Review Gmail drafts** - Always review AI-generated emails before sending
-
----
-
-## 📊 Expected Performance
-
-- **URL fetch:** 2-5 seconds
-- **JD extraction:** 3-8 seconds
-- **Resume optimization:** 15-25 seconds
-- **Document creation:** 2-5 seconds
-- **Total optimization time:** 30-60 seconds per optimization
-- **4-score analysis:** 20-40 seconds
-- **Recruiter automation:** 30-60 seconds per recruiter
-
----
-
-## ✅ Success Checklist
-
-- [ ] Node.js installed
-- [ ] PostgreSQL installed and database created
-- [ ] Google Cloud project created
-- [ ] 5 APIs enabled (Docs, Drive, Sheets, Gmail, Generative Language)
-- [ ] OAuth credentials created (Desktop app) - 2 sets (main + Gmail)
-- [ ] Refresh tokens generated (main + Gmail)
-- [ ] API keys obtained (Gemini x3 OR ChatGPT x1-3)
-- [ ] Resumes uploaded to Google Docs (Frontend + Full Stack)
-- [ ] Drive folder created
-- [ ] `.env` file configured with all IDs and keys
-- [ ] Backend dependencies installed
-- [ ] Both servers running (ports 3000 and 3001)
-- [ ] Extension loaded in Chrome
-- [ ] Extension settings configured
-- [ ] Test optimization completed successfully
-- [ ] Optional: Hunter.io and SerpAPI keys configured
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID (Docs/Drive/Sheets) |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
+| `GOOGLE_REFRESH_TOKEN` | Yes | Google OAuth refresh token |
+| `FRONTEND_RESUME_DOC_ID` | Yes | Google Docs ID for frontend resume |
+| `FULLSTACK_RESUME_DOC_ID` | Yes | Google Docs ID for full-stack resume |
+| `DRIVE_FOLDER_ID` | Yes | Google Drive folder for uploads |
+| `TRACKING_SHEET_ID` | No | Google Sheets tracking spreadsheet ID |
+| `AI_PROVIDER` | No | `gemini` (default) or `openai` |
+| `GEMINI_API_KEY` | If gemini | Google Gemini API key |
+| `CHATGPT_API_KEY` | If openai | OpenAI API key |
+| `GMAIL_CLIENT_ID` | No | Gmail OAuth client ID |
+| `GMAIL_CLIENT_SECRET` | No | Gmail OAuth client secret |
+| `GMAIL_REFRESH_TOKEN` | No | Gmail OAuth refresh token |
+| `SERP_API_KEY` | No | SerpAPI key for LinkedIn search |
+| `HUNTER_API_KEY` | No | Hunter.io key for email discovery |
+| `TAVILY_API_KEY` | No | Tavily key for company research |
+| `BACKEND_RESUME_DOC_ID` | No | Backend-specific resume doc ID |
+| `DEVOPS_RESUME_DOC_ID` | No | DevOps-specific resume doc ID |
+| `WORKDAY_EMAIL` | No | Workday login email (auto-apply) |
+| `WORKDAY_PASSWORD` | No | Workday login password (auto-apply) |
+| `BOT_TIMEOUT_MINUTES` | No | Auto-apply bot timeout |
+| `BOT_TYPING_DELAY_MS` | No | Typing delay for bot interactions |
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please:
 
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## 🎉 You're Ready!
-
-Start optimizing resumes and tracking your applications automatically!
-
-**Questions?** Check troubleshooting section or review error messages in:
-- Backend terminal (for API errors)
-- Chrome DevTools Console (F12 → Console for extension errors)
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes
+4. Push to the branch (`git push origin feature/your-feature`)
+5. Open a Merge Request
 
 ---
 
-**Created by:** Lokesh Para  
-**Last Updated:** January 2025  
-**Version:** 2.0.0
- 
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

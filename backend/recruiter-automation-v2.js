@@ -3,7 +3,6 @@
 // With AI-Powered Top 3 Recruiter Selection
 // =====================================================
 
-const puppeteer = require('puppeteer');
 const axios = require('axios');
 
 // =====================================================

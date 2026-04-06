@@ -147,6 +147,14 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Close button — closes the window (works whether opened as popup or tab)
+  const closeBtn = document.getElementById('closeBtn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      window.close();
+    });
+  }
+
   // Character counter for job description
   if (jobDescriptionInput) {
     jobDescriptionInput.addEventListener('input', () => {
@@ -199,7 +207,8 @@ document.addEventListener('DOMContentLoaded', function () {
       'loading': loadingState,
       'success': successState,
       'error': errorState,
-      'settingsRequired': settingsRequired
+      'settingsRequired': settingsRequired,
+      'fitCheck': document.getElementById('fitCheckState')
     };
 
     // Hide all states
@@ -534,33 +543,53 @@ function updateStep(stepNum, state) {
         console.log('🌐 Sending URL mode request with URL:', requestBody.currentPageUrl);
       }
 
-      // Step 2: Extract JD (10-25%)
-      updateLoadingStep('📄 Extracting job description...', 15);
+      // Step 2: Send request and wait for FULL backend response
+      // NOTE: response.json() must be called BEFORE any fake delays
+      // because the fit check gate (WARN/NO) returns early from the backend
+      // and we need to intercept it immediately — not after 1.4s of setTimeout
+      updateLoadingStep('📄 Sending request to server...', 15);
 
       const response = await fetch(`${BACKEND_URL}/api/optimize-resume`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
 
-      updateLoadingStep('✅ Job description extracted', 25);
-
-      // Step 3: Simulate analysis phase (25-50%)
-      updateLoadingStep('🔍 Analyzing job requirements...', 30);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      updateLoadingStep('🎯 Selecting best resume type...', 40);
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      updateLoadingStep('✅ Analysis complete', 50);
-
+      // Parse JSON immediately — before any fake progress delays
       const data = await response.json();
+
+      // ── Fit Check Gate ─────────────────────────────────────────────────────
+      // Must happen RIGHT after parsing — backend returns early for WARN/NO
+      // and does NOT run the full optimization pipeline
+
+      if (data.fitCheckFailed === true) {
+        // Hard blocker (APPLY: NO) — stop entirely, show blocked UI
+        showFitCheckBlocked(data);
+        return;
+      }
+
+      if (data.requiresConfirmation === true) {
+        // Soft warning (APPLY: WARN) — pause, ask user to confirm
+        showFitCheckWarn(data, requestBody, mode);
+        return;
+      }
+      // ───────────────────────────────────────────────────────────────────────
 
       if (!response.ok) {
         throw new Error(data.error || data.details || 'Optimization failed');
       }
+
+      // Fit check passed (APPLY: YES) — now show fake progress
+      // Safe to do this AFTER parsing since the full optimization already ran
+      updateLoadingStep('✅ Job description extracted', 25);
+
+      updateLoadingStep('🔍 Analyzing job requirements...', 30);
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      updateLoadingStep('🎯 Selecting best resume type...', 40);
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      updateLoadingStep('✅ Analysis complete', 50);
 
       // Step 4: Simulate optimization phase (50-75%)
       updateLoadingStep('⚡ Generating optimization points...', 55);
@@ -644,6 +673,45 @@ function updateStep(stepNum, state) {
         trackingLink.style.display = 'block';
       }
     }
+
+    // =====================================================
+    // AUTO APPLY BUTTON — Show after successful optimization
+    // =====================================================
+    const autoApplyBtn = document.getElementById('autoApplyBtn');
+    if (autoApplyBtn && data.links && data.links.editInGoogleDocs) {
+      autoApplyBtn.style.display = 'block';
+      autoApplyBtn.onclick = async () => {
+        const jdUrl = await getCurrentTabUrl();
+        const resumeLink = data.links.editInGoogleDocs;
+        const company = data.companyName || data.company || '';
+        const position = data.position || '';
+
+        autoApplyBtn.textContent = 'Launching Bot...';
+        autoApplyBtn.disabled = true;
+
+        try {
+          await fetch('http://localhost:3000/api/auto-apply/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              trigger: 'extension',
+              jdUrl: jdUrl || '',
+              resumeLink: resumeLink,
+              jobDescription: '',
+              companyName: company,
+              position: position,
+              aiProvider: 'chatgpt'
+            })
+          });
+        } catch (e) {
+          console.error('Failed to start bot:', e);
+        }
+
+        chrome.tabs.create({
+          url: 'http://localhost:3000/auto-apply/live'
+        });
+      };
+    }
   }
 
   // Show error state
@@ -672,5 +740,128 @@ function updateStep(stepNum, state) {
   }
 
 });
+
+// =====================================================
+// FIT CHECK HANDLERS
+// =====================================================
+
+// Called when backend returns fitCheckFailed: true (hard NO)
+function showFitCheckBlocked(data) {
+  const fitCheck = data.fitCheck || {};
+
+  const reasonEl  = document.getElementById('fitBlockReason');
+  const detailEl  = document.getElementById('fitBlockDetail');
+  const backBtn   = document.getElementById('fitBlockBack');
+
+  if (reasonEl) reasonEl.textContent = fitCheck.reason || 'This role is not a match.';
+  if (detailEl) {
+    detailEl.innerHTML =
+      `<strong>Blocker:</strong> ${fitCheck.blocker || 'Unknown'}<br>` +
+      `<strong>Fit Score:</strong> ${fitCheck.fitScore ?? '—'}/100<br><br>` +
+      `No resume changes can overcome this. Save your API calls for better-matched roles.`;
+  }
+
+  // Show blocked card, hide warn card
+  const blocked = document.getElementById('fitCheckBlocked');
+  const warn    = document.getElementById('fitCheckWarn');
+  if (blocked) blocked.style.display = 'block';
+  if (warn)    warn.style.display    = 'none';
+
+  // Wire back button
+  if (backBtn) {
+    backBtn.onclick = () => {
+      currentMode   = null;
+      currentAction = 'optimize';
+      showState('actionSelection');
+    };
+  }
+
+  showState('fitCheck');
+}
+
+// Called when backend returns requiresConfirmation: true (WARN)
+function showFitCheckWarn(data, originalRequestBody, mode) {
+  const fitCheck = data.fitCheck || {};
+
+  const reasonEl  = document.getElementById('fitWarnReason');
+  const detailEl  = document.getElementById('fitWarnDetail');
+  const scoreEl   = document.getElementById('fitScorePill');
+  const proceedBtn = document.getElementById('fitWarnProceed');
+  const backBtn   = document.getElementById('fitWarnBack');
+
+  if (reasonEl) reasonEl.textContent = fitCheck.reason || 'This role has some concerns.';
+  if (detailEl) {
+    detailEl.innerHTML =
+      `<strong>Concern:</strong> ${fitCheck.blocker || 'Weak stack or domain match'}<br><br>` +
+      `Resume will still be generated and optimized. Just be prepared for a lower response rate.`;
+  }
+  if (scoreEl) {
+    const score = fitCheck.fitScore ?? 0;
+    scoreEl.textContent = `Fit Score: ${score}/100`;
+    // Color by score
+    if (score >= 60) {
+      scoreEl.style.background = '#fefce8';
+      scoreEl.style.color = '#854d0e';
+    } else {
+      scoreEl.style.background = '#fef2f2';
+      scoreEl.style.color = '#991b1b';
+      scoreEl.style.borderColor = '#fca5a5';
+    }
+  }
+
+  // Show warn card, hide blocked card
+  const blocked = document.getElementById('fitCheckBlocked');
+  const warn    = document.getElementById('fitCheckWarn');
+  if (blocked) blocked.style.display = 'none';
+  if (warn)    warn.style.display    = 'block';
+
+  // Wire "Proceed Anyway" — re-send request with forceApply + sessionId
+  if (proceedBtn) {
+    proceedBtn.onclick = async () => {
+      proceedBtn.disabled = true;
+      proceedBtn.textContent = 'Generating resume...';
+
+      try {
+        const forceBody = {
+          ...originalRequestBody,
+          forceApply:    true,
+          resumeSessionId: data.sessionId || null
+        };
+
+        showState('loading');
+        updateLoadingStep('⚡ Proceeding with optimization...', 10);
+
+        const res = await fetch(`${BACKEND_URL}/api/optimize-resume`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(forceBody)
+        });
+
+        updateLoadingStep('✅ Resume optimizing...', 50);
+        const result = await res.json();
+
+        if (!res.ok) throw new Error(result.error || result.details || 'Optimization failed');
+
+        updateLoadingStep('✅ Resume generated!', 100);
+        await new Promise(r => setTimeout(r, 500));
+        showSuccess(result);
+
+      } catch (err) {
+        showError(err.message || 'Optimization failed after confirmation');
+      }
+    };
+  }
+
+  // Wire "Back"
+  if (backBtn) {
+    backBtn.onclick = () => {
+      currentMode   = null;
+      currentAction = 'optimize';
+      showState('actionSelection');
+    };
+  }
+
+  showState('fitCheck');
+}
 
 // END OF FILE

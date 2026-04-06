@@ -12,12 +12,26 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const WebSocket = require('ws');
+const { WebSocketServer } = require('ws');
 const {
   findRecruitersAndSendEmails
 } = require('./recruiter-automation-v2');
+const { fetchCompanyContext } = require('./company-context');
+const {
+  createCheckpointTable,
+  saveCheckpoint,
+  loadCheckpoint,
+  markComplete,
+  markFailed,
+  generateSessionId,
+  cleanupOldCheckpoints,
+  STEPS
+} = require('./checkpoint');
+const { registerAutoApplyRoutes, createBotSessionsTable } = require('./auto-apply/routes');
 
 const app = express();
-app.use(express.static('public'));
 const PORT = 3000;
 
 // Middleware
@@ -116,26 +130,57 @@ async function generateWithGemini(prompt, apiKey) {
 
 // ChatGPT (OpenAI) implementation
 async function generateWithChatGPT(prompt, apiKey) {
-  try {
-    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4.1-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 4000
-    }, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
+  const maxRetries = 3;
+  let lastError;
 
-    return response.data.choices[0].message.content;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(`ChatGPT API Error: ${error.response.data.error.message}`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        const waitMs = attempt * 3000; // 3s, 6s
+        console.log(`  ⏳ Retry attempt ${attempt}/${maxRetries} — waiting ${waitMs/1000}s...`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+
+      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+        model: 'gpt-4.1-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 4000
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 120000  // 2 min timeout — rewrite prompt is large
+      });
+
+      return response.data.choices[0].message.content;
+
+    } catch (error) {
+      lastError = error;
+      const isRetryable = (
+        error.code === 'ECONNRESET' ||
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'ENOTFOUND' ||
+        error.code === 'EPIPE' ||
+        (error.response && error.response.status >= 500) ||
+        (error.response && error.response.status === 429)
+      );
+
+      if (isRetryable && attempt < maxRetries) {
+        console.log(`  ⚠️ Attempt ${attempt} failed (${error.code || error.response?.status}): ${error.message} — retrying...`);
+        continue;
+      }
+
+      // Not retryable or out of retries
+      if (error.response) {
+        throw new Error(`ChatGPT API Error: ${error.response.data.error.message}`);
+      }
+      throw new Error(`ChatGPT API Error: ${error.message}`);
     }
-    throw new Error(`ChatGPT API Error: ${error.message}`);
   }
+
+  throw new Error(`ChatGPT API Error after ${maxRetries} attempts: ${lastError.message}`);
 }
 
 // Health check endpoint
@@ -188,6 +233,307 @@ function loadProjectReadmes() {
       cifar10Readme: 'Error loading README'
     };
   }
+}
+
+// Helper: Build the optimization points prompt (shared by single + batch optimize)
+function buildOptimizationPointsPrompt({ resumeType, originalResume, jobDescription, portalName, projectReadmes, companyContext }) {
+  return `You are a senior resume strategist. Your job is to generate precise optimization points that will make this resume score 88-92% on ATS while looking completely human-written.
+ 
+====================================================
+INPUTS
+====================================================
+ 
+RESUME TYPE: ${resumeType}
+ 
+CURRENT RESUME:
+${originalResume}
+ 
+JOB DESCRIPTION:
+${jobDescription}
+ 
+PORTAL: ${portalName}
+ 
+Project Readmes:
+${projectReadmes.resumeOptimizerReadme}
+${projectReadmes.cifar10Readme}
+ 
+====================================================
+COMPANY CONTEXT
+====================================================
+ 
+PROBLEM TYPE: ${companyContext ? companyContext.problemType : 'unclear'}
+WHAT THIS TEAM BUILDS: ${companyContext ? companyContext.whatTheyBuild : 'unclear'}
+WHY THIS ROLE EXISTS NOW: ${companyContext ? companyContext.whyHiringNow : 'unclear'}
+CURRENT PROJECT: ${companyContext ? companyContext.projectContext : 'unclear'}
+TECH BEING REPLACED: ${companyContext ? companyContext.techBeingReplaced : 'unclear'}
+DOMAIN LANGUAGE: ${companyContext ? companyContext.domainLanguage : 'unclear'}
+BEST MATCH FROM LOKESH: ${companyContext ? companyContext.bestMatchFromLokesh : 'unclear'}
+NARRATIVE FRAME: ${companyContext ? companyContext.narrativeFrame : 'unclear'}
+ 
+====================================================
+STEP 1 — DO THIS ANALYSIS BEFORE GENERATING ANY POINTS
+====================================================
+ 
+Read the JD carefully and extract:
+ 
+REQUIRED_SKILLS: [every required/must-have technical skill from JD]
+PREFERRED_SKILLS: [every preferred/nice-to-have skill from JD]
+TOOLS_AND_TECH: [every tool, framework, library, platform mentioned]
+ 
+Then check the current resume and identify:
+MISSING_FROM_SKILLS_SECTION: [JD skills NOT present in current Skills section]
+MISSING_FROM_BULLETS: [JD skills with no mention anywhere in experience or project bullets]
+WEAK_IN_RESUME: [JD skills mentioned once but need more prominence]
+ 
+Every skill in MISSING_FROM_SKILLS_SECTION must get an optimization point.
+Every skill in MISSING_FROM_BULLETS must get an optimization point.
+This guarantees 88%+ ATS score every time.
+ 
+====================================================
+STEP 2 — GENERATE OPTIMIZATION POINTS
+====================================================
+ 
+Generate 8-25+ points in this EXACT priority order:
+1. Required skills missing from Skills section → ADD_SKILL point (highest priority)
+2. Required skills missing from all bullets → ADD_SKILL point
+3. Preferred skills missing from Skills section → ADD_SKILL point
+4. Preferred skills missing from bullets → ADD_SKILL point
+5. Bullet reordering for JD relevance → REORDER_BULLETS point
+6. Domain language alignment using company context → MODIFY_BULLET point
+7. Metric improvements → ENHANCE_METRIC point
+ 
+GOALS:
+✅ ALL required JD skills in Skills section AND at least one bullet
+✅ ALL preferred JD skills in Skills section AND at least one bullet
+✅ 88-92% ATS match — MINIMUM 85%, never below
+✅ Every change 100% interview-defensible
+✅ Human-written, not AI-generated
+✅ Domain language from company context used to reframe bullets
+Note: never add soft skills, domain keywords, or industry terms to the Skills section.
+ 
+====================================================
+SKILL ADDITION STRATEGY
+====================================================
+ 
+FOR EVERY MISSING SKILL — add in TWO places:
+ 
+1. SKILLS SECTION
+   - Fit into EXISTING categories first — minimize new categories
+   - Only create new category if skill truly doesn't fit anywhere
+   - Plain text, comma-separated, no bold
+   - Category format: "Category Name & Related:" (use & not and)
+   - Examples: "Machine Learning & AI:", "Cloud & DevOps:", "Testing & Quality Assurance:"
+ 
+   Fitting into existing categories:
+   - OAuth2, JWT, SAML → "Backend"
+   - Redis, Memcached → "Databases & Messaging"
+   - Prometheus, Grafana → "Testing, Monitoring & Security"
+   - GraphQL → "Backend"
+   - Tailwind, Sass → "Frontend"
+ 
+   New category placement:
+   - JD heavily emphasizes it → position 2-3 (HIGH)
+   - JD mentions as nice-to-have → near end (LOW)
+ 
+2. EXPERIENCE OR PROJECTS BULLET
+   - PRIORITIZE PROJECTS for AI/ML, automation, full-stack side-project skills
+   - Choose Experience for skills that fit actual work responsibilities
+   - Pick the MOST REALISTIC company or project
+   - Add naturally to existing bullet OR create new bullet
+   - BOLD the skill name in bullets: "**Spring Boot**", "**Kafka**", "**React 18**"
+   - Never bold in Skills section
+ 
+   Realistic placement:
+   - LPL Financial: Cloud, modern frameworks, fintech, market data, portfolio systems
+   - Athenahealth: Healthcare tech, FHIR, compliance, data security
+   - YES Bank: Payments, banking, security, transaction processing
+   - Comcast: Media, streaming, content delivery, scalability
+   - Resume Optimizer AI: Full-stack, AI/ML integration, Chrome extensions, Node.js, PostgreSQL, automation
+   - CIFAR-10: PyTorch, TensorFlow, deep learning, CNNs, model optimization
+ 
+SKILL ADDITION EXAMPLES:
+ 
+❌ BAD: "Implemented microservices using Spring Boot, Kafka, Redis, Docker, Kubernetes"
+✅ GOOD: "Built event-driven microservices using **Spring Boot** and **Apache Kafka**, processing 2M+ daily transactions with **Redis** caching for sub-200ms response times"
+ 
+❌ BAD: "Worked with React, Angular, Vue, and Next.js for frontend"
+✅ GOOD: "Migrated legacy Angular application to **React 18** with **TypeScript**, reducing bundle size by 40%"
+ 
+Bold rules:
+- ONLY bold skills that appear in the JD
+- Bold the skill name only, not the surrounding phrase
+- Never bold in Skills section
+ 
+====================================================
+DOMAIN ALIGNMENT
+====================================================
+ 
+Use company context to make bullets contextually relevant, not just keyword-matched.
+ 
+1. LEAD WITH THE MATCH
+   - Best matching company's most contextually relevant bullet → move to position 1
+   - First 2 bullets should signal "I have done exactly what you are building"
+ 
+2. USE THEIR DOMAIN LANGUAGE
+   - Replace generic terms with their specific vocabulary
+   - WRONG: "Processed financial transactions"
+   - RIGHT: "Processed trade settlement events for broker-dealer accounts"
+ 
+3. MATCH THE PROBLEM TYPE
+   - MODERNIZATION → emphasize migration, legacy integration, refactoring
+   - SCALING → emphasize throughput, performance, reliability metrics
+   - GREENFIELD → emphasize architecture decisions, full ownership, building from scratch
+   - INTEGRATION → emphasize external APIs, third-party systems, data feeds
+ 
+4. CONTEXT NOT JUST TECH
+   - WRONG: "Built Kafka event streaming pipeline"
+   - RIGHT: "Built Kafka pipeline for real-time trade confirmation event processing"
+ 
+====================================================
+PROJECTS AS COMPETITIVE ADVANTAGE
+====================================================
+ 
+Two projects to use strategically:
+1. Resume Optimizer AI — Full-stack Chrome extension, Node.js, PostgreSQL, Google APIs, AI/ML, automation
+2. CIFAR-10 — PyTorch, TensorFlow, deep learning, CNNs, model optimization, training pipelines
+ 
+Strategy:
+- Identify JD skills weak or missing from work experience
+- If skill fits Resume Optimizer AI scope → showcase it there
+- If skill fits CIFAR-10 scope → showcase it there
+- Projects prove you build real things outside work — highly valued
+- Each project: 3-5 bullets, bold JD skills, include metrics
+ 
+Examples:
+- JD needs PyTorch/TensorFlow → CIFAR-10 is perfect
+- JD needs Chrome extensions/PostgreSQL/REST APIs → Resume Optimizer AI is perfect
+- JD needs Spring Boot/Kafka → already in work experience, reinforce only if heavily emphasized
+ 
+====================================================
+BULLET REORDERING
+====================================================
+ 
+Move most JD-relevant bullet to position #1 at each company.
+Recruiters spend 6 seconds scanning — first 2 bullets decide everything.
+ 
+Example — JD emphasizes Kafka:
+Current: 1,2,3,4,5,6 → New: 3,1,2,5,4,6 (bullet 3 was about Kafka)
+ 
+====================================================
+HUMANIZATION RULES
+====================================================
+ 
+Action verbs — use variety:
+- Architected, Built, Developed, Engineered, Created, Designed, Implemented, Established, Deployed
+- "Implemented" MAX 3 times total in entire resume
+- Never start consecutive bullets with same verb
+ 
+Metrics — 40-50% of bullets only:
+- Round numbers: 40%, 2M+, 99.9% (NOT 43.7%, 2.3M)
+- Mix bullets with and without metrics
+ 
+Language:
+- Real tech terms: Spring Boot, Kafka, React, PostgreSQL
+- NO buzzwords: "cutting-edge", "revolutionary", "synergized", "leveraged", "spearheaded"
+- Write like an engineer talking to another engineer
+ 
+====================================================
+ABSOLUTE RULES — NEVER CHANGE THESE
+====================================================
+ 
+❌ Company names, dates, job titles
+❌ Number of companies (keep all 4)
+❌ Project names or core project technologies
+❌ Certifications or Education
+❌ Contact information
+❌ Resume structure or section order
+❌ Resume must not exceed 2 pages
+ 
+====================================================
+OPTIMIZATION POINT FORMAT
+====================================================
+ 
+POINT 1:
+Type: ADD_SKILL
+Skill: Apache Flink
+Where_Skills: Databases & Messaging (existing category)
+Where_Experience_Or_Project: LPL Financial, Bullet 3
+Integration: "Extend existing Kafka bullet to mention **Flink** for stream processing with 500K events/sec throughput"
+Bold: YES (Flink is from JD)
+Priority: High
+Reasoning: JD lists Flink as required skill; fits existing "Databases & Messaging" category; realistic since candidate has Kafka experience at LPL
+ 
+POINT 2:
+Type: REORDER_BULLETS
+Section: Experience
+Company: Athenahealth
+Current_Order: 1,2,3,4,5
+New_Order: 4,1,2,3,5
+Reasoning: JD emphasizes FHIR APIs — move FHIR bullet to position 1
+ 
+POINT 3:
+Type: ADD_SKILL
+Skill: TensorFlow, PyTorch
+Where_Skills: AI & Data (existing category)
+Where_Experience_Or_Project: Projects - CIFAR-10, Bullet 1
+Integration: "Update first bullet to emphasize both **PyTorch** (primary) and **TensorFlow** for model experimentation"
+Bold: YES (both from JD)
+Priority: High
+Reasoning: JD requires deep learning frameworks; CIFAR-10 is the perfect place — more credible than adding to work experience
+ 
+POINT 4:
+Type: MODIFY_BULLET
+Section: Experience
+Company: LPL Financial
+Bullet: 2
+Current: "Built RESTful APIs integrating market data feeds"
+New: "Built RESTful APIs integrating **Bloomberg** market data feeds for real-time portfolio pricing across 19K advisor accounts"
+Bold: YES (Bloomberg from JD)
+Priority: High
+Reasoning: JD uses clearing/fintech domain language — reframe with their vocabulary
+ 
+POINT 5:
+Type: REORDER_BULLETS
+Section: Projects
+Project: Resume Optimizer AI
+Current_Order: 1,2,3,4
+New_Order: 2,1,3,4
+Reasoning: JD heavily emphasizes PostgreSQL — move database bullet to position 1
+ 
+====================================================
+POINT TYPES
+====================================================
+ 
+1. ADD_SKILL — Add missing JD skill to Skills section AND (Experience OR Projects)
+2. REORDER_BULLETS — Change bullet order at a company or project
+3. MODIFY_BULLET — Update existing bullet to add skill or domain context
+4. MERGE_BULLETS — Combine two bullets (reduces count by 1)
+5. ENHANCE_METRIC — Make existing metric more specific or impressive
+ 
+====================================================
+QUALITY CHECKLIST — VERIFY BEFORE RETURNING
+====================================================
+ 
+□ Every REQUIRED JD skill has a point adding it to Skills section
+□ Every REQUIRED JD skill has a point adding it to at least one bullet
+□ Every PREFERRED JD skill has a point adding it to Skills section
+□ Best matching company's most relevant bullet moved to position 1
+□ Domain language from company context used in at least 2-3 bullet integrations
+□ Projects section leveraged for AI/ML and full-stack skills
+□ Every change is natural and interview-safe
+□ No keyword stuffing
+□ Would this score 88%+ on ATS?
+□ Would a recruiter trust this resume?
+ 
+====================================================
+OUTPUT RULES
+====================================================
+ 
+Start directly with "POINT 1:" — no preamble, no commentary.
+End with:
+FILENAME: Lokesh_Para_[JobTitle]_[CompanyName]
+ 
+Begin output:`;
 }
 
 // Helper: Extract company and position from job description
@@ -476,6 +822,70 @@ Be decisive. Choose the resume that gives the candidate the BEST chance of getti
   }
 }
 
+// =====================================================
+// STEP 1.5: PRE-FLIGHT JOB FIT CHECK
+// =====================================================
+async function checkJobFit(jobDescription, aiProvider, apiKey) {
+  const fitPrompt = `You are a senior technical recruiter. Assess if this candidate 
+is a realistic fit BEFORE optimizing their resume.
+
+CANDIDATE FACTS (non-negotiable):
+- Primary stack: Java, Spring Boot, React, TypeScript
+- Secondary: Node.js (side project level), Python (ML projects)
+- Visa: F-1 STEM OPT — requires H-1B sponsorship
+- Years of experience: 5+
+- Domain: Fintech, Healthcare IT, Telecom
+
+JOB DESCRIPTION:
+${jobDescription.substring(0, 4000)}
+
+EVALUATE THESE DEALBREAKERS IN ORDER:
+
+1. SPONSORSHIP CHECK
+   Does the JD say "cannot sponsor", "no sponsorship", "must be authorized", 
+   "citizens/PR only", or similar? 
+   → If YES: REJECT immediately
+
+2. PRIMARY STACK MISMATCH
+   Is the PRIMARY required language something other than Java/JavaScript/TypeScript?
+   (Go required, Rust required, .NET/C# primary, Python primary, Ruby, etc.)
+   → Check if candidate's stack is even mentioned in JD requirements
+   → If candidate's stack is completely absent: REJECT
+
+3. DOMAIN EXPERTISE MISMATCH  
+   Does the role require deep expertise the candidate genuinely lacks?
+   (Blockchain/crypto/Web3, Network infrastructure, Embedded systems, 
+   Compiler design, Game development, etc.)
+   → If core domain is something candidate has never worked in: REJECT
+
+4. SENIORITY/LEVEL CHECK
+   Is this a Staff/Principal/Distinguished/Fellow level role? 
+   → These rarely sponsor and often require 10+ years: WARN
+
+RESPOND IN EXACTLY THIS FORMAT:
+APPLY: YES / WARN / NO
+REASON: [one sentence, specific]
+BLOCKER: [the specific dealbreaker, or "none"]
+FIT_SCORE: [0-100, honest assessment]
+PROCEED: true / false`;
+
+  const response = await generateAIContent(fitPrompt, aiProvider, apiKey);
+
+  const applyMatch   = response.match(/APPLY:\s*(YES|WARN|NO)/i);
+  const reasonMatch  = response.match(/REASON:\s*(.+?)(?:\n|$)/i);
+  const blockerMatch = response.match(/BLOCKER:\s*(.+?)(?:\n|$)/i);
+  const fitMatch     = response.match(/FIT_SCORE:\s*(\d+)/i);
+  const proceedMatch = response.match(/PROCEED:\s*(true|false)/i);
+
+  return {
+    apply:    applyMatch    ? applyMatch[1].toUpperCase()                    : 'WARN',
+    reason:   reasonMatch   ? reasonMatch[1].trim()                          : 'Unable to assess',
+    blocker:  blockerMatch  ? blockerMatch[1].trim()                         : 'none',
+    fitScore: fitMatch      ? parseInt(fitMatch[1])                          : 50,
+    proceed:  proceedMatch  ? proceedMatch[1].toLowerCase() === 'true'       : true
+  };
+}
+
 async function logApplicationToDB({
   companyName,
   position,
@@ -610,6 +1020,12 @@ async function logToGoogleSheet(data) {
 }
 
 // Main optimization endpoint
+// =====================================================
+// REPLACE LINES 946–1821 IN server.js
+// From:  app.post('/api/optimize-resume', async (req, res) => {
+// To:    the closing });  before the BATCH OPTIMIZE comment
+// =====================================================
+
 app.post('/api/optimize-resume', async (req, res) => {
   try {
     const {
@@ -622,7 +1038,8 @@ app.post('/api/optimize-resume', async (req, res) => {
       chatgptApiKey,
       chatgptKey2,
       chatgptKey3,
-      manualJobDescription
+      manualJobDescription,
+      resumeSessionId        // ← NEW: pass this to resume a failed run
     } = req.body;
 
     console.log('\n📥 Request received:', {
@@ -630,16 +1047,14 @@ app.post('/api/optimize-resume', async (req, res) => {
       hasCurrentPageUrl: !!currentPageUrl,
       hasManualJD: !!manualJobDescription,
       manualJDLength: manualJobDescription ? manualJobDescription.length : 0,
-      aiProvider
+      aiProvider,
+      resumeSessionId: resumeSessionId || 'new session'
     });
 
-    // Determine job post URL for tracking
-    const jobPostUrl = currentPageUrl || jobUrl || 'Manual Input';
-    console.log('🔗 Job Post URL for tracking:', jobPostUrl);
-
-    // Validation
+    // ── Validation ───────────────────────────────────────────────────────────
+    const jobPostUrl  = currentPageUrl || jobUrl || 'Manual Input';
     const hasManualJD = manualJobDescription && manualJobDescription.trim().length > 0;
-    const hasJobUrl = jobUrl && jobUrl.trim().length > 0;
+    const hasJobUrl   = jobUrl && jobUrl.trim().length > 0;
 
     if (!hasManualJD && !hasJobUrl) {
       return res.status(400).json({
@@ -647,558 +1062,844 @@ app.post('/api/optimize-resume', async (req, res) => {
         details: 'Please provide either a job URL or paste the job description manually'
       });
     }
-
     if (!aiProvider) {
       return res.status(400).json({ error: 'AI provider is required' });
     }
-
-    // Validate API keys
-    if (aiProvider === 'gemini') {
-      if (!geminiKey1 || !geminiKey2 || !geminiKey3) {
-        return res.status(400).json({ error: 'All 3 Gemini API keys are required' });
-      }
-    } else if (aiProvider === 'chatgpt') {
-      if (!chatgptApiKey) {
-        return res.status(400).json({ error: 'ChatGPT API key is required' });
-      }
+    if (aiProvider === 'gemini' && (!geminiKey1 || !geminiKey2 || !geminiKey3)) {
+      return res.status(400).json({ error: 'All 3 Gemini API keys are required' });
+    }
+    if (aiProvider === 'chatgpt' && !chatgptApiKey) {
+      return res.status(400).json({ error: 'ChatGPT API key is required' });
     }
 
     console.log(`\n🚀 Starting optimization with ${aiProvider.toUpperCase()}`);
 
-    let jobDescription;
-    let contentSource;
+    const extractionKey = aiProvider === 'gemini' ? geminiKey1 : chatgptApiKey;
+    const analysisKey   = aiProvider === 'gemini' ? geminiKey2 : (chatgptKey2 || chatgptApiKey);
+    const rewriteKey    = aiProvider === 'gemini' ? geminiKey3 : (chatgptKey3 || chatgptApiKey);
 
-    // PRIORITY 1: Manual JD
-    if (hasManualJD) {
-      console.log('📝 MODE: MANUAL JD INPUT');
-      console.log(`📊 Manual JD length: ${manualJobDescription.length.toLocaleString()} characters`);
+    // ── Load or create checkpoint ─────────────────────────────────────────────
+    const tempSessionId = resumeSessionId || generateSessionId(jobPostUrl, 'pending');
+    let cp = await loadCheckpoint(pool, tempSessionId);
 
-      jobDescription = manualJobDescription.trim();
-      contentSource = 'manual_input';
-
-      console.log('✅ Using manual job description - SKIPPING URL FETCH');
-
+    if (cp && cp.status === 'complete') {
+      console.log('✅ Session already complete — returning cached result');
+      return res.json({
+        success: true,
+        resumed: true,
+        sessionId: cp.sessionId,
+        status: '✅ Already completed — no reprocessing needed'
+      });
     }
-    // PRIORITY 2: URL Fetch
-    else if (hasJobUrl) {
-      console.log('🌐 MODE: URL FETCH');
-      console.log(`📍 Job URL: ${jobUrl}`);
-      contentSource = 'url_fetch';
 
-      // Step 1: Fetch job page
-      console.log('📄 Step 1: Fetching job page from URL...');
+    if (cp) {
+      console.log(`\n♻️  Resuming from step ${cp.step} for session ${tempSessionId}`);
+    } else {
+      console.log(`\n🆕 New session: ${tempSessionId}`);
+      await saveCheckpoint(pool, tempSessionId, STEPS.STARTED, { aiProvider, jobPostUrl });
+    }
 
-      let jobResponse;
-      let retries = 3;
+    let contentSource = hasManualJD ? 'manual_input' : 'url_fetch';
 
-      for (let i = 0; i < retries; i++) {
+    // ── STEP 1-2: Job description ─────────────────────────────────────────────
+    let jobDescription = cp?.jobDescription;
+
+    if (!jobDescription) {
+      if (hasManualJD) {
+        console.log('📝 MODE: MANUAL JD INPUT');
+        jobDescription = manualJobDescription.trim();
+        contentSource  = 'manual_input';
+        console.log('✅ Using manual job description');
+      } else {
+        console.log('🌐 MODE: URL FETCH (Playwright)');
+        contentSource = 'url_fetch';
+
+        const { chromium } = require('playwright');
+        let browser = null;
+        let pageText = '';
+
         try {
-          console.log(`   Attempt ${i + 1}/${retries}...`);
-
-          jobResponse = await axios.get(jobUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-              'Accept-Language': 'en-US,en;q=0.9',
-              'Connection': 'keep-alive'
-            },
-            timeout: 40000,
-            maxRedirects: 5,
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity
+          browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' }
           });
-
-          console.log(`✅ Job page fetched (${jobResponse.data.length.toLocaleString()} characters)`);
-          break;
-
-        } catch (error) {
-          console.log(`   ❌ Attempt ${i + 1} failed:`, error.message);
-
-          if (i === retries - 1) {
-            return res.status(500).json({
-              error: 'Failed to fetch job page',
-              details: `Could not access the job URL after ${retries} attempts. Please try using Manual JD Input mode instead.`
-            });
+          await context.route('**/*', (route) => {
+            const type = route.request().resourceType();
+            if (['image','font','media','stylesheet'].includes(type)) route.abort();
+            else route.continue();
+          });
+          const page = await context.newPage();
+          await page.goto(jobUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await page.waitForTimeout(5000);
+          for (let i = 0; i < 6; i++) {
+            const textLen = await page.evaluate(() => document.body.innerText.trim().length).catch(() => 0);
+            if (textLen > 500) break;
+            console.log(`   ⏳ Page still loading (${textLen} chars), waiting...`);
+            await page.waitForTimeout(2500);
           }
-
-          console.log(`   ⏳ Waiting 2 seconds before retry...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-      }
-
-      // Step 2: Extract job description
-      console.log('🤖 Step 2: Extracting job description from HTML...');
-      console.log(`   Processing ${jobResponse.data.length.toLocaleString()} characters`);
-
-      const jdPrompt = `Clean this HTML and extract ONLY the job description text.
-
-Remove: HTML tags, CSS, JavaScript, navigation, headers, footers
-
-Output format:
-Job Title: [title]
-Company: [company]
-Location: [location]
-
-[Full job description content]
-
-HTML:
-${jobResponse.data}`;
-
-      const extractionKey = aiProvider === 'gemini' ? geminiKey1 : chatgptApiKey;
-      const analysisKey = aiProvider === 'gemini' ? geminiKey2 : (chatgptKey2 || chatgptApiKey);
-      const rewriteKey = aiProvider === 'gemini' ? geminiKey3 : (chatgptKey3 || chatgptApiKey);
-
-      try {
-        jobDescription = await generateAIContent(jdPrompt, aiProvider, extractionKey);
-        console.log(`✅ Job description extracted (${jobDescription.length.toLocaleString()} chars)`);
-      } catch (error) {
-        if (error.message.includes('too large') || error.message.includes('context_length_exceeded')) {
-          return res.status(413).json({
-            error: 'Job page too large',
-            details: 'Please use Manual JD Input mode instead.'
+          try {
+            const dismissSelectors = ['button[id*="cookie" i]','button[class*="cookie" i]','button[id*="accept" i]','button[class*="consent" i]','.onetrust-accept-btn-handler'];
+            for (const sel of dismissSelectors) {
+              const btn = await page.$(sel);
+              if (btn) { await btn.click().catch(() => {}); break; }
+            }
+          } catch (_) {}
+          pageText = await page.evaluate(() => {
+            ['nav','header','footer','script','style','noscript','[role="navigation"]','[role="banner"]','[role="contentinfo"]','aside']
+              .forEach(sel => document.querySelectorAll(sel).forEach(el => el.remove()));
+            return document.body.innerText.replace(/\t/g,' ').replace(/\n{3,}/g,'\n\n').trim();
           });
+          console.log(`   ✅ Page extracted (${pageText.length.toLocaleString()} chars)`);
+        } catch (error) {
+          console.log(`   ❌ Playwright failed: ${error.message} — trying axios...`);
+          try {
+            const axiosResp = await axios.get(jobUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' },
+              timeout: 30000, maxRedirects: 5
+            });
+            pageText = axiosResp.data
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi,'')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi,'')
+              .replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s{2,}/g,' ').trim();
+          } catch (axiosErr) {
+            return res.status(500).json({ error: 'Failed to fetch job page', details: axiosErr.message });
+          }
+        } finally {
+          if (browser) await browser.close().catch(() => {});
         }
-        throw error;
+
+        if (!pageText || pageText.length < 50) {
+          return res.status(500).json({ error: 'Failed to extract content from job page', details: 'Use Manual JD Input instead.' });
+        }
+
+        const truncatedText = pageText.length > 15000 ? pageText.substring(0, 15000) + '\n\n[...truncated]' : pageText;
+        const jdPrompt = `Extract the job description from this page text. Return ONLY the job-related content.\n\nOutput format:\nJob Title: [title]\nCompany: [company]\nLocation: [location]\n\n[Full job description]\n\nPAGE TEXT:\n${truncatedText}`;
+
+        try {
+          jobDescription = await generateAIContent(jdPrompt, aiProvider, extractionKey);
+          console.log(`✅ JD extracted (${jobDescription.length.toLocaleString()} chars)`);
+        } catch (error) {
+          if (error.message.includes('too large') || error.message.includes('context_length_exceeded')) {
+            return res.status(413).json({ error: 'Job page too large', details: 'Use Manual JD Input instead.' });
+          }
+          throw error;
+        }
+
+        const jdValidation = jobDescription.trim();
+        const jdBodyCheck  = jdValidation.replace(/^(Job Title|Company|Location|Pay Range|About the company)\s*[:]\s*.*/gim,'').replace(/N\/A/gi,'').replace(/\n/g,' ').trim();
+        const noJdCheck    = /no job.*(description|content|posting|found|available)|not a job|no jd found|cannot extract|could not find|does not contain|no relevant (job|content)|page does not|unable to extract|no meaningful/i;
+        if (jdValidation === 'NO_JOB_DESCRIPTION' || jdBodyCheck.length < 80 || noJdCheck.test(jdValidation)) {
+          return res.status(400).json({ error: 'No job description found', details: 'Use Manual JD Input instead.' });
+        }
       }
+
+      await saveCheckpoint(pool, tempSessionId, STEPS.JD_FETCHED, { jobDescription });
+    } else {
+      console.log(`♻️  Using cached JD (${jobDescription.length} chars)`);
     }
 
     console.log(`\n📊 CONTENT SOURCE: ${contentSource}`);
     console.log(`📝 Final JD length: ${jobDescription.length.toLocaleString()} characters\n`);
 
-    // Step 3.5: Extract company and position
-    console.log('🔍 Step 3.5: Extracting job details...');
-    const extractionKey = aiProvider === 'gemini' ? geminiKey1 : chatgptApiKey;
-    const jobDetails = await extractJobDetails(jobDescription, aiProvider, extractionKey);
-    let companyName = jobDetails.company;
-    let position = jobDetails.position;
+    // ── STEP 1.5: Pre-flight job fit check ────────────────────────────────────
+    // Skip fit check if user already confirmed (forceApply: true) or checkpoint has it
+    const forceApply = req.body.forceApply === true;
 
-    console.log(`\n📊 Extracted Job Details:`);
-    console.log(`   🏢 Company: ${companyName}`);
-    console.log(`   💼 Position: ${position}\n`);
+    if (!forceApply && !cp?.fitCheck) {
+      console.log('🎯 Step 1.5: Checking job fit...');
+      const fitCheck = await checkJobFit(jobDescription, aiProvider, extractionKey);
 
-    // Step 3.6: AI-powered ATS detection and strategy
-    console.log('🤖 Step 3.6: AI analyzing job portal and creating strategy...');
-    const atsAnalysis = await detectATSAndStrategy(
-      jobPostUrl,
-      jobDescription,
-      aiProvider,
-      extractionKey
-    );
+      console.log(`   Apply    : ${fitCheck.apply}`);
+      console.log(`   Fit Score: ${fitCheck.fitScore}`);
+      console.log(`   Reason   : ${fitCheck.reason}`);
+      console.log(`   Blocker  : ${fitCheck.blocker}\n`);
 
-    console.log(`\n🎯 Portal Analysis:`);
-    console.log(`   📱 Portal: ${atsAnalysis.portalName}`);
-    console.log(`   📊 Strategy Created\n`);
+      // Save fitCheck into checkpoint so resume works
+      await saveCheckpoint(pool, tempSessionId, STEPS.STARTED, {
+        aiProvider, jobPostUrl, jobDescription, fitCheck
+      });
 
-    // Step 3.7: AI-powered resume selection
-    console.log('🎯 Step 3.7: AI selecting best resume for this JD...');
-    const resumeSelection = await selectBestResume(
-      jobDescription,
-      aiProvider,
-      extractionKey
-    );
+      if (fitCheck.apply === 'NO') {
+        // Hard blocker — stop entirely
+        return res.json({
+          success:              false,
+          fitCheckFailed:       true,
+          requiresConfirmation: false,
+          fitCheck,
+          sessionId:            tempSessionId,
+          status:               `⛔ Not a fit — ${fitCheck.reason}`,
+          message:              'Resume optimization stopped. This role has a hard blocker that cannot be fixed by resume changes.',
+          blocker:              fitCheck.blocker
+        });
+      }
 
-    // Map selected resume to document ID
-    let selectedResumeId;
-    let resumeType;
-    
+      if (fitCheck.apply === 'WARN') {
+        // Soft warning — pause and ask user to confirm
+        return res.json({
+          success:              false,
+          fitCheckFailed:       false,
+          requiresConfirmation: true,
+          fitCheck,
+          sessionId:            tempSessionId,
+          status:               `⚠️ Weak fit — ${fitCheck.reason}`,
+          message:              'This role has concerns. Send forceApply: true with the same sessionId to continue anyway.',
+          blocker:              fitCheck.blocker
+        });
+      }
+
+      console.log(`✅ Fit check passed (score: ${fitCheck.fitScore}) — proceeding\n`);
+    } else {
+      if (forceApply) {
+        console.log('⚡ forceApply=true — user confirmed, skipping fit check\n');
+      } else {
+        console.log('♻️  Using cached fit check\n');
+      }
+    }
+
+    // ── STEP 3.5: Extract job details ─────────────────────────────────────────
+    let companyName = cp?.companyName;
+    let position    = cp?.position;
+    let sessionId   = tempSessionId;
+
+    if (!companyName || !position) {
+      console.log('🔍 Step 3.5: Extracting job details...');
+      const jobDetails = await extractJobDetails(jobDescription, aiProvider, extractionKey);
+      companyName = jobDetails.company;
+      position    = jobDetails.position;
+
+      // Now we have company — generate proper stable session ID
+      const properSessionId = resumeSessionId || generateSessionId(jobPostUrl, companyName);
+      if (properSessionId !== tempSessionId) {
+        // Migrate checkpoint to proper session ID
+        await saveCheckpoint(pool, properSessionId, STEPS.JOB_DETAILS, {
+          companyName, position, jobDescription, jobPostUrl, aiProvider
+        });
+        await pool.query('DELETE FROM optimization_checkpoints WHERE session_id = $1', [tempSessionId]);
+        sessionId = properSessionId;
+      } else {
+        sessionId = tempSessionId;
+        await saveCheckpoint(pool, sessionId, STEPS.JOB_DETAILS, { companyName, position });
+      }
+
+      console.log(`\n📊 Extracted Job Details:`);
+      console.log(`   🏢 Company: ${companyName}`);
+      console.log(`   💼 Position: ${position}\n`);
+    } else {
+      sessionId = resumeSessionId || generateSessionId(jobPostUrl, companyName);
+      console.log(`♻️  Using cached job details: ${companyName} — ${position}`);
+    }
+
+    // ── STEP 3.6: ATS detection ───────────────────────────────────────────────
+    let atsAnalysis = cp?.atsAnalysis;
+
+    if (!atsAnalysis) {
+      console.log('🤖 Step 3.6: AI analyzing job portal and creating strategy...');
+      atsAnalysis = await detectATSAndStrategy(jobPostUrl, jobDescription, aiProvider, extractionKey);
+      await saveCheckpoint(pool, sessionId, STEPS.ATS_DETECTED, { atsAnalysis });
+      console.log(`\n🎯 Portal: ${atsAnalysis.portalName}\n`);
+    } else {
+      console.log(`♻️  Using cached ATS analysis: ${atsAnalysis.portalName}`);
+    }
+
+    // ── STEP 3.7: Resume selection ────────────────────────────────────────────
+    let resumeSelection = cp?.resumeSelection;
+
+    if (!resumeSelection) {
+      console.log('🎯 Step 3.7: AI selecting best resume for this JD...');
+      resumeSelection = await selectBestResume(jobDescription, aiProvider, extractionKey);
+      await saveCheckpoint(pool, sessionId, STEPS.RESUME_SELECTED, { resumeSelection });
+      console.log(`\n📄 Selected: ${resumeSelection.selectedResume} (${resumeSelection.confidence})\n`);
+    } else {
+      console.log(`♻️  Using cached resume selection: ${resumeSelection.selectedResume}`);
+    }
+
+    let selectedResumeId, resumeType;
     switch (resumeSelection.selectedResume) {
       case 'FRONTEND':
         selectedResumeId = FRONTEND_RESUME_DOC_ID;
         resumeType = 'Frontend Resume';
         break;
       case 'FULLSTACK':
-        selectedResumeId = FULLSTACK_RESUME_DOC_ID;
-        resumeType = 'Full Stack Resume';
-        break;
       default:
         selectedResumeId = FULLSTACK_RESUME_DOC_ID;
         resumeType = 'Full Stack Resume';
         break;
     }
 
-    console.log(`\n📄 Resume Selection:`);
-    console.log(`   🎯 Selected: ${resumeSelection.selectedResume}`);
-    console.log(`   📊 Confidence: ${resumeSelection.confidence}`);
-    console.log(`   📋 Using: ${resumeType}`);
-    console.log(`   🆔 Document ID: ${selectedResumeId}`);
-    console.log(`   💡 Reasoning: ${resumeSelection.reasoning}\n`);
+    // ── STEP 3.8: Company context ─────────────────────────────────────────────
+    let companyContext = cp?.companyContext;
 
-    // Step 4: Get selected resume
-    console.log(`📋 Step 4: Fetching ${resumeType}...`);
-    const resumeDoc = await docs.documents.get({
-      documentId: selectedResumeId
-    });
-    const originalResume = extractTextFromDoc(resumeDoc.data);
-    console.log(`✅ Resume fetched (${originalResume.length} chars)`);
+    if (!companyContext) {
+      console.log('🏢 Step 3.8: Fetching company context...');
+      companyContext = await fetchCompanyContext({
+        companyName,
+        jobDescription,
+        tavilyApiKey: process.env.TAVILY_API_KEY,
+        aiProvider,
+        apiKey: extractionKey,
+        generateAIContent
+      });
+      await saveCheckpoint(pool, sessionId, STEPS.COMPANY_CONTEXT, { companyContext });
+      console.log(`   Problem type : ${companyContext.problemType}`);
+      console.log(`   Confidence   : ${companyContext.confidence}`);
+      console.log(`   Best match   : ${companyContext.bestMatchFromLokesh}\n`);
+    } else {
+      console.log(`♻️  Using cached company context: ${companyContext.problemType}`);
+    }
 
-    // Step 5: Generate optimization points
-    console.log('💡 Step 5: Generating optimization points...');
+    // ── STEP 4: Fetch resume from Google Docs ─────────────────────────────────
+    let originalResume = cp?.originalResume;
 
-    // Replace the optimizationPrompt variable with this:
+    if (!originalResume) {
+      console.log(`📋 Step 4: Fetching ${resumeType}...`);
+      const resumeDoc = await docs.documents.get({ documentId: selectedResumeId });
+      originalResume  = extractTextFromDoc(resumeDoc.data);
+      await saveCheckpoint(pool, sessionId, STEPS.RESUME_FETCHED, { originalResume, resumeType });
+      console.log(`✅ Resume fetched (${originalResume.length} chars)`);
+    } else {
+      console.log(`♻️  Using cached original resume (${originalResume.length} chars)`);
+    }
 
-// Replace the optimizationPrompt variable with this:
-const projectReadmes = loadProjectReadmes();
+    // ── STEP 5a: Optimization points ─────────────────────────────────────────
+    let optimizationPoints = cp?.optimizationPoints;
+    let suggestedFileName  = cp?.suggestedFilename;
 
-// ====================================================
-// UPDATED OPTIMIZATION PROMPT (Replace lines 794-1054)
-// ====================================================
+    if (!optimizationPoints) {
+      console.log('💡 Step 5: Generating optimization points...');
+      const projectReadmes     = loadProjectReadmes();
+      const optimizationPrompt = buildOptimizationPointsPrompt({
+        resumeType, originalResume, jobDescription,
+        portalName: atsAnalysis.portalName, projectReadmes, companyContext
+      });
 
-const optimizationPrompt = `You are a senior resume strategist specializing in making resumes look HUMAN-WRITTEN while strategically matching job requirements.
+      optimizationPoints = await generateAIContent(optimizationPrompt, aiProvider, analysisKey);
+      const pointCount   = (optimizationPoints.match(/POINT \d+:/g) || []).length;
+      console.log(`✅ Generated ${pointCount} optimization points`);
+      console.log(`✅ optimization points -----> ${optimizationPoints}`);
+
+      const filenameMatch = optimizationPoints.match(/FILENAME:\s*(.+?)(?:\n|$)/i);
+      if (filenameMatch) {
+        suggestedFileName = filenameMatch[1].trim();
+        console.log(`📝 Suggested filename: ${suggestedFileName}`);
+      } else if (companyName !== 'N/A' && position !== 'N/A') {
+        const posClean  = position.replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,'_');
+        const compClean = companyName.replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,'_');
+        suggestedFileName = `Lokesh_Para_${posClean}_${compClean}`;
+        console.log(`📝 Generated filename: ${suggestedFileName}`);
+      }
+
+      await saveCheckpoint(pool, sessionId, STEPS.OPTIMIZATION_POINTS, {
+        optimizationPoints, suggestedFilename: suggestedFileName
+      });
+    } else {
+      console.log(`♻️  Using cached optimization points`);
+    }
+
+    // ── STEP 5b: Rewrite resume ───────────────────────────────────────────────
+    let optimizedResume = cp?.optimizedResume;
+
+    if (!optimizedResume) {
+      console.log('✍️ Step 5: Rewriting resume...');
+      const projectReadmes = loadProjectReadmes();
+
+      const rewritePrompt = `You are a senior technical resume writer. Apply every optimization point precisely. The output must score 88-92% on ATS and look completely human-written.
 
 ====================================================
-CRITICAL CONTEXT
+SECTION 1: YOUR TWO GOALS (EQUAL PRIORITY)
 ====================================================
 
-The candidate has 90%+ ATS scores but ZERO interview responses.
-Problem: Resumes look AI-generated and keyword-stuffed.
-Solution: Make strategic, HUMAN changes that build trust with recruiters.
+GOAL 1 — ATS SCORE 88-92%:
+Every required JD skill MUST appear in the Skills section AND in at least one bullet.
+Every preferred JD skill MUST appear in the Skills section.
+If any required skill is still missing after applying all optimization points — add it yourself.
+Never let the resume drop below 85% ATS.
+
+GOAL 2 — HUMAN-WRITTEN:
+No consecutive bullets starting with the same verb.
+No buzzwords. No keyword stuffing. No robotic patterns.
+Write like an engineer talking to another engineer.
+40-50% of bullets have metrics — not all of them.
 
 ====================================================
-INPUTS
+SECTION 2: INPUTS
 ====================================================
 
 RESUME TYPE: ${resumeType}
 
-CURRENT RESUME:
+ORIGINAL RESUME:
 ${originalResume}
+
+OPTIMIZATION POINTS TO APPLY:
+${optimizationPoints}
 
 JOB DESCRIPTION:
 ${jobDescription}
-Extract all relevant information from the job description like required skills, preferred skills, responsibilities, tools/technologies, soft skills, domain keywords, industry terms.
-Compare with the current resume including BOTH Experience and Projects sections.
 
 PORTAL: ${atsAnalysis.portalName}
+
+COMPANY CONTEXT:
+Problem type: ${companyContext ? companyContext.problemType : 'unclear'}
+What they build: ${companyContext ? companyContext.whatTheyBuild : 'unclear'}
+Domain language: ${companyContext ? companyContext.domainLanguage : 'unclear'}
+Best match from Lokesh: ${companyContext ? companyContext.bestMatchFromLokesh : 'unclear'}
+Narrative frame: ${companyContext ? companyContext.narrativeFrame : 'unclear'}
 
 Project Readmes:
 ${projectReadmes.resumeOptimizerReadme}
 ${projectReadmes.cifar10Readme}
 
 ====================================================
-YOUR MISSION
+SECTION 3: RESUME STRUCTURE — NON-NEGOTIABLE
 ====================================================
 
-Generate 8-25 strategic optimization points that:
-✅ Add missing JD skills NATURALLY to Experience, Projects, and Skills sections
-✅ Reorder bullets to highlight most relevant experience first
-✅ Keep every change 100% interview-defensible
-✅ Make resume look human-written, not AI-generated
-✅ Target 85-92% ATS match (NOT 100% - that looks fake)
-✅ Make it need to be at least 85% ATS match
-Note: don't add soft skills, domain keywords, industry terms in the skills section.
+Output MUST follow this EXACT structure. No additions. No removals. No reordering.
+
+---RESUME START---
+
+Lokesh Para
+Software Engineer
+
+paralokesh5@gmail.com | 682-503-1723 | linkedin.com/in/lokeshpara99 | github.com/lokeshpara | lokeshpara.github.io/Portfolio
+
+PROFESSIONAL EXPERIENCE
+
+Java Full Stack Developer | LPL Financial, San Diego, California
+June 2025 - Present
+• [6-7 bullets]
+
+Java Full Stack Developer | Athenahealth, Boston, MA
+August 2024 - May 2025
+• [5-6 bullets]
+
+Java Full Stack Developer | YES Bank, Mumbai, India
+November 2021 - July 2023
+• [5-6 bullets]
+
+Java Developer | Comcast Corporation, Chennai, India
+May 2020 - October 2021
+• [4-5 bullets]
+
+PROJECTS
+
+Resume Optimizer AI - Chrome Extension with AI & Google Workspace Integration
+• [3-5 bullets]
+
+CIFAR-10 Image Classification with Custom ResNet Architecture
+• [3-5 bullets]
+
+TECHNICAL SKILLS
+
+[Categories: plain text, comma-separated, no bullets, no bold]
+
+CERTIFICATIONS
+
+• Oracle Cloud Infrastructure 2025 Certified AI Foundations Associate
+• AWS Certified Solutions Architect – Associate
+
+EDUCATION
+
+Master of Science in Computer and Information Sciences
+Southern Arkansas University | Magnolia, Arkansas, USA
+
+---RESUME END---
+
+STRICT RULES — NEVER VIOLATE:
+❌ Never change company names, dates, job titles, contact info
+❌ Never add a Summary or Objective section
+❌ Never change section order: Experience → Projects → Skills → Certifications → Education
+❌ Never change Certifications or Education text
+❌ Never change project names
+❌ Title stays exactly "Software Engineer"
+❌ Resume must not exceed 2 pages
 
 ====================================================
-SKILL ADDITION STRATEGY (CRITICAL)
+SECTION 4: APPLY EVERY OPTIMIZATION POINT
 ====================================================
 
-FOR EVERY MISSING SKILL IN JD:
+Apply each point exactly as specified. Do not skip. Do not soften.
 
-1. **Add to Skills Section**
-   - FIRST: Try to fit into EXISTING categories (minimize category count)
-   - ONLY create new category if skill truly doesn't fit anywhere
-   - Format: plain text, comma-separated, no bold
-   
-   **Category Placement Rules:**
-   - If new category needed AND JD heavily emphasizes it → Place HIGH (2nd-3rd position)
-   - If new category needed AND JD mentions as nice-to-have → Place LOW (near end)
-   - Default position: After related categories logically
-   
-   **Category Naming:**
-   - Use descriptive names for ATS + human readability
-   - Format: "Category Name & Related:" (use "&" not "and")
-   - Examples: "Machine Learning & AI:", "Cloud & DevOps:", "Testing & Quality Assurance:"
-   - DON'T use abbreviations: "ML/AI" → use "Machine Learning & AI"
-   
-   **Fitting Skills into Existing Categories (Minimize New Categories):**
-   - OAuth2, JWT, SAML → "Backend" (not new "Security" category)
-   - Redis, Memcached → "Databases & Messaging" (not new "Caching" category)
-   - Prometheus, Grafana → "Testing, Monitoring & Security" (not new "Observability" category)
-   - GraphQL → "Backend" (not new "API" category)
-   - Tailwind, Sass → "Frontend" (not new "CSS" category)
+ADD_SKILL:
+→ Add to Skills section under the specified category
+→ Add to Experience OR Projects at the specified location
+→ Sound natural and realistic — not obviously inserted
 
-2. **Add to Experience OR Projects Section** 
-   - **PRIORITIZE PROJECTS** if the skill is better suited for project work (e.g., ML models, AI automation, full-stack side projects)
-   - Choose Experience if skill fits existing work responsibilities
-   - Choose the company/project where it's MOST REALISTIC
-   - Add naturally to an existing bullet OR create new bullet
-   - Make it sound like you actually used it
-   - Use specific context (project name, metric, outcome)
-   - **BOLD the skill name** when adding to bullets (helps ATS + recruiter scanning)
-   - Example: "Built event-driven microservices using **Spring Boot** and **Apache Kafka**"
+REORDER_BULLETS:
+→ Rearrange to exact order specified
+→ Keep all bullet content unchanged — only position changes
 
-SKILL ADDITION RULES:
+MODIFY_BULLET:
+→ Update specified bullet with new content
+→ Keep core message, weave in the specified skill or domain context
 
-**Required Skills (JD says "required" or "must have"):**
-- MUST add to Skills section
-- MUST add to Experience OR Projects (at most realistic location)
-- High priority - make it prominent
+MERGE_BULLETS:
+→ Combine two bullets into one coherent sentence
+→ Bullet count drops by 1
 
-**Nice-to-Have Skills (JD says "preferred" or "nice to have"):**
-- MUST add to Skills section
-- MUST add to Experience OR Projects (at most realistic location)
-- Lower priority - can be subtle mention
+ENHANCE_METRIC:
+→ Make metric more specific or impressive
+→ Round numbers only — never use decimals
 
-**Realistic Placement by Section:**
-
-**Experience Section:**
-- LPL Financial (current): Cloud, modern frameworks, recent technologies
-- Athenahealth: Healthcare tech, FHIR, compliance, data security
-- YES Bank: Payments, banking, security, transaction processing
-- Comcast: Media, streaming, content delivery, scalability
-
-**Projects Section:**
-- Resume Optimizer AI: Full-stack development, AI/ML integration, Chrome extensions, Google APIs, Node.js, PostgreSQL, automation
-- CIFAR-10 ML Project: PyTorch, TensorFlow, deep learning, CNNs, data augmentation, model optimization
-
-EXAMPLES OF NATURAL SKILL ADDITION:
-
-❌ BAD (keyword stuffing):
-"Implemented microservices using Spring Boot, Kafka, Redis, Docker, Kubernetes, Jenkins"
-
-✅ GOOD (natural integration with JD skills bolded):
-"Built event-driven microservices using **Spring Boot** and **Apache Kafka**, processing 2M+ daily transactions with **Redis** caching for sub-200ms response times"
-
-❌ BAD (obvious addition):
-"Worked with React, Angular, Vue, and Next.js for frontend development"
-
-✅ GOOD (specific context with JD skills bolded):
-"Migrated legacy Angular application to **React 18** with **TypeScript**, reducing bundle size by 40% and improving load time to under 2 seconds"
-
-**Bold Formatting Rules:**
-- ONLY bold skills that appear in the JD
-- Bold the skill name, not the entire phrase
-- Examples: "**Spring Boot**", "**Kafka**", "**React 18**", "**PostgreSQL**"
-- Don't bold common words: "using", "with", "implementing"
-- Don't bold in Skills section (plain text only there)
+THEN — ATS SELF-CHECK:
+After applying all points, check: is every required JD skill in Skills section AND a bullet?
+If any required skill is still missing → add it yourself before writing output.
 
 ====================================================
-PROJECTS SECTION OPTIMIZATION
+SECTION 5: HUMANIZATION RULES
 ====================================================
 
-**Projects are a COMPETITIVE ADVANTAGE - use them strategically to maximize selection probability**
+ACTION VERBS — vary throughout:
+Use: Architected, Built, Developed, Engineered, Created, Designed, Implemented, Established, Deployed
+- "Implemented" MAX 3 times in entire resume
+- "Architected" MAX 2 times in entire resume
+- Never start two consecutive bullets with the same verb
 
-The candidate has TWO powerful projects that demonstrate real skills:
-1. Resume Optimizer AI: Full-stack Chrome extension with AI integration, Node.js backend, PostgreSQL, Google APIs
-2. CIFAR-10 ML Project: Deep learning with PyTorch, CNNs, model optimization, training pipelines
+❌ ROBOTIC:
+• Implemented microservices using Spring Boot
+• Implemented RESTful APIs with OAuth2
+• Implemented event-driven architecture
 
-**Your Strategic Mission:**
-Analyze the JD requirements and intelligently leverage these projects to fill skill gaps, demonstrate capabilities, and maximize interview selection chances.
+✅ HUMAN:
+• Architected microservices ecosystem using **Spring Boot** processing 2M+ daily transactions
+• Built RESTful APIs with **OAuth2** authentication integrating Bloomberg market data
+• Designed event-driven architecture using **Kafka** with sub-200ms latency
 
-**Strategic Thinking Framework:**
+METRICS — 40-50% of bullets only:
+✅ Round numbers: 40%, 2M+, 99.9%
+❌ Never: 43.7%, 2.3M, 87.4%
 
-1. **Identify JD Skill Gaps**: Which required/preferred skills are missing or weak in the work experience?
-
-2. **Evaluate Project Fit**: For each missing skill, ask:
-   - Could this skill realistically be demonstrated in Resume Optimizer AI? (Full-stack, AI APIs, databases, automation, Chrome dev)
-   - Could this skill realistically be demonstrated in CIFAR-10 project? (ML/AI, PyTorch, TensorFlow, data processing, model optimization)
-   - Would adding it to work experience be unrealistic or questionable?
-
-3. **Maximize Competitive Advantage**: 
-   - If a JD skill can be showcased through projects AND it strengthens the candidate's story → USE PROJECTS
-   - Projects prove you build real things outside of work (highly valued)
-   - Projects can demonstrate bleeding-edge skills not yet used at work
-
-4. **Maintain Authenticity**: 
-   - Only add skills that genuinely fit the project's scope
-   - Each project can have 3-5 bullets
-   - Bold JD-mentioned technologies in project bullets
-   - Include metrics and concrete outcomes
-
-**Strategic Examples:**
-
-If JD requires: "Experience with PyTorch, TensorFlow, deep learning"
-→ This is PERFECT for CIFAR-10 project - emphasize these in project bullets
-→ Adds massive credibility because you actually built this
-
-If JD requires: "Chrome extension development, REST APIs, PostgreSQL"
-→ This is PERFECT for Resume Optimizer AI - showcase these capabilities
-→ Demonstrates full-stack skills beyond typical job requirements
-
-If JD requires: "Microservices, Spring Boot, Kafka"
-→ Already strong in work experience, may not need project reinforcement
-→ But if JD heavily emphasizes these, can add to Resume Optimizer backend if realistic
-
-**Optimization Approach:**
-Think strategically about how to position this candidate as the BEST FIT for the role. Use projects to:
-- Fill skill gaps that work experience doesn't cover
-- Demonstrate initiative and continuous learning
-- Show hands-on experience with modern/emerging technologies
-- Prove ability to build complete solutions end-to-end
-
-The goal: Make the resume impossible to ignore by strategically showcasing ALL relevant skills across Experience AND Projects sections.
+LANGUAGE:
+✅ Real tech terms: Spring Boot, Kafka, React, PostgreSQL, Kubernetes
+❌ Never: "cutting-edge", "revolutionary", "synergized", "leveraged", "spearheaded", "championed"
 
 ====================================================
-BULLET REORDERING STRATEGY
+SECTION 6: SKILLS SECTION RULES
 ====================================================
 
-**ALWAYS move most JD-relevant bullet to position #1 at each company/project**
+TECHNICAL SKILLS
 
-Recruiters spend 6 seconds scanning - first 2 bullets matter most.
+Category Name: skill1, skill2, skill3, skill4
+Category Name: skill1, skill2, skill3
 
-Example:
-If JD emphasizes "Kafka event streaming":
-- Current order: 1,2,3,4,5,6
-- New order: 3,1,2,5,4,6 (if bullet #3 is about Kafka)
-
-====================================================
-HUMANIZATION RULES (NON-NEGOTIABLE)
-====================================================
-
-1. **Vary Action Verbs**
-   - Use: Architected, Built, Developed, Engineered, Created, Designed, Implemented
-   - Don't use "Implemented" more than 3 times in entire resume
-   - Don't start consecutive bullets with same verb
-
-2. **Natural Metrics**
-   - Only 40-50% of bullets should have metrics
-   - Use round numbers: 40%, 2M+, 99.9% (not 43.7% or 2.3M)
-   - Mix quantitative and qualitative impact
-
-3. **Conversational Tech Language**
-   - Use real tech terms: Spring Boot, Kafka, React, PostgreSQL
-   - Avoid buzzwords: "cutting-edge", "revolutionary", "synergized"
-   - Sound like an engineer talking to another engineer
-
-4. **Realistic Bullet Structure**
-   - Mix short (1 line) and long (2 lines) bullets
-   - Some bullets describe scope without metrics
-   - Vary technical depth (some simple, some detailed)
+Rules:
+- NO bold, NO bullets, NO tables
+- Minimize categories — fit into existing ones first
+- Category names use "&": "Cloud & DevOps:", "Testing & Quality Assurance:"
+- OAuth2, JWT → "Backend" | Redis → "Databases & Messaging" | Prometheus → "Testing, Monitoring & Security"
 
 ====================================================
-WHAT NOT TO CHANGE (ABSOLUTE RULES)
+SECTION 7: BULLET FORMATTING RULES
 ====================================================
 
-❌ Company names, dates, job titles in Experience section
-❌ Number of companies (keep all 4)
-❌ Project names or core technologies
-❌ Certifications
-❌ Education
-❌ Contact information
-❌ Resume shouldn't exceed 2 pages
+✅ Bold JD-mentioned skills in Experience AND Projects: "**Spring Boot**", "**Kafka**"
+✅ Bold project names before the dash
+❌ Never bold in Skills section
+❌ Never bold common words: "using", "with", "implementing"
+✅ Always use "• " (bullet + space) — never "-", "*", or numbers
+✅ One blank line between sections, companies, projects
+✅ No blank lines between bullets at same company/project
+✅ Plain text output — no markdown, no HTML
 
 ====================================================
-OPTIMIZATION POINT FORMAT
+SECTION 8: FINAL CHECKLIST — RUN BEFORE WRITING OUTPUT
 ====================================================
 
-POINT 1:
-Type: ADD_SKILL
-Skill: Apache Flink
-Where_Skills: Databases & Messaging (existing category)
-Where_Experience_Or_Project: LPL Financial, Bullet 3
-Integration: "Extend existing Kafka bullet to mention **Flink** for stream processing with 500K events/sec throughput"
-Bold: YES (Flink is from JD)
-Priority: High
-Reasoning: JD lists Flink as required skill; fits existing "Databases & Messaging" category; realistic since candidate has Kafka experience at LPL
+ATS:
+□ Every REQUIRED JD skill in Skills section AND at least one bullet?
+□ Every PREFERRED JD skill in Skills section?
+□ 88%+ JD keywords covered?
 
-POINT 2:
-Type: REORDER_BULLETS
-Section: Experience
-Company: Athenahealth
-Current_Order: 1,2,3,4,5
-New_Order: 4,1,2,3,5
-Reasoning: JD emphasizes FHIR APIs - move FHIR bullet to position 1
+Structure:
+□ Order: Experience → Projects → Skills → Certifications → Education
+□ "Lokesh Para" and "Software Engineer" in header
+□ All 4 companies with exact names and dates
+□ Both projects with exact names
 
-POINT 3:
-Type: ADD_SKILL
-Skill: TensorFlow, PyTorch
-Where_Skills: AI & Data (existing category)
-Where_Experience_Or_Project: Projects - CIFAR-10, Bullet 1
-Integration: "Update first bullet to emphasize both **PyTorch** (primary) and **TensorFlow** for model experimentation"
-Bold: YES (both are from JD)
-Priority: High
-Reasoning: JD requires deep learning frameworks; CIFAR-10 project is the PERFECT place to showcase this; more credible than adding to work experience
+Bullet counts:
+□ LPL Financial: 6-7 | Athenahealth: 5-6 | YES Bank: 5-6 | Comcast: 4-5
+□ Resume Optimizer AI: 3-5 | CIFAR-10: 3-5
 
-POINT 4:
-Type: ADD_SKILL
-Skill: Chrome Extension Development
-Where_Skills: Frontend (existing category - add "Chrome Extensions")
-Where_Experience_Or_Project: Projects - Resume Optimizer AI, Bullet 1
-Integration: "Emphasize **Chrome Extension** development with Manifest V3 in first bullet"
-Bold: YES (Chrome extensions from JD)
-Priority: High
-Reasoning: JD mentions browser extension development; Resume Optimizer project demonstrates this perfectly
-
-POINT 5:
-Type: REORDER_BULLETS
-Section: Projects
-Project: Resume Optimizer AI
-Current_Order: 1,2,3,4
-New_Order: 2,1,3,4
-Reasoning: JD heavily emphasizes PostgreSQL - move database bullet to position 1
+Humanization:
+□ No consecutive same verb | "Implemented" max 3x | "Architected" max 2x
+□ 40-50% bullets have metrics | Round numbers only | No buzzwords
 
 ====================================================
-POINT TYPES YOU CAN USE
+SECTION 9: OUTPUT INSTRUCTIONS
 ====================================================
 
-1. **ADD_SKILL**: Add missing JD skill to Skills and (Experience OR Projects)
-2. **REORDER_BULLETS**: Change bullet order at a company or project
-3. **MODIFY_BULLET**: Update existing bullet to add skill/context
-4. **MERGE_BULLETS**: Combine two bullets (reduces count by 1)
-5. **ENHANCE_METRIC**: Make existing metric more specific/impressive
+Return ONLY the complete resume.
+No preamble. No commentary. No explanations.
+Start directly with "Lokesh Para".
+End with the Education section.
 
-====================================================
-QUALITY CHECKLIST
-====================================================
+Begin output now:`;
 
-Before returning, verify:
-□ Added ALL important JD skills to Skills AND (Experience OR Projects)
-□ Skills added to most realistic sections (Experience vs Projects)
-□ Leveraged Projects section for AI/ML and full-stack skills
-□ Reordered bullets to put most relevant first
-□ Every change sounds natural and interview-safe
-□ No keyword stuffing or robotic patterns
-□ Would a recruiter trust this resume?
+      optimizedResume = await generateAIContent(rewritePrompt, aiProvider, rewriteKey);
+      await saveCheckpoint(pool, sessionId, STEPS.RESUME_REWRITTEN, { optimizedResume });
+      console.log(`✅ Resume rewritten (${optimizedResume.length} chars)`);
+      console.log(`Rewrite resume ======> ${optimizedResume}`);
+    } else {
+      console.log(`♻️  Using cached rewritten resume`);
+    }
 
-====================================================
-OUTPUT RULES
-====================================================
+    // ── STEP 6: Convert to HTML ───────────────────────────────────────────────
+    console.log('🎨 Step 6: Converting to HTML...');
+    const styledHtml = convertToStyledHTML(optimizedResume);
 
-Return 8-25 optimization points ONLY.
-NO preamble, explanations, or commentary.
-Start directly with "POINT 1:"
+    // ── STEP 7: Upload to Google Drive ────────────────────────────────────────
+    console.log('☁️ Step 7: Uploading to Google Drive...');
+    const fileName = suggestedFileName || `Lokesh_Para_Optimized_${Date.now()}`;
+    console.log(`📄 Filename: ${fileName}`);
 
-Focus on HIGH-IMPACT changes:
-- Adding missing JD skills naturally to best section (Experience OR Projects)
-- Reordering bullets for relevance
-- Subtle wording improvements
-- Strategic use of Projects section for competitive advantage
+    let fileId, resumeLink;
+    try {
+      const file = await drive.files.create({
+        requestBody: {
+          name:     fileName,
+          parents:  [DRIVE_FOLDER_ID],
+          mimeType: 'application/vnd.google-apps.document'
+        },
+        media: {
+          mimeType: 'text/html',
+          body:     styledHtml
+        },
+        fields: 'id'
+      });
+      fileId     = file.data.id;
+      resumeLink = `https://docs.google.com/document/d/${fileId}/edit`;
+      console.log('✅ Document created! ID:', fileId);
+      await setDocumentFormatting(fileId);
+      await saveCheckpoint(pool, sessionId, STEPS.UPLOADED, {});
+    } catch (uploadError) {
+      // Save state so retry skips everything and only re-uploads
+      await markFailed(pool, sessionId, `Upload failed: ${uploadError.message}`);
+      return res.status(500).json({
+        error: 'Google Drive upload failed',
+        details: uploadError.message,
+        sessionId: sessionId,
+        hint: `Your resume is fully generated and saved. Send this sessionId back as resumeSessionId to retry upload only.`
+      });
+    }
 
-Begin output:
-`;
+    // ── STEP 8: Log to PostgreSQL ─────────────────────────────────────────────
+    try {
+      await logApplicationToDB({ companyName, position, resumeLink, jobPostUrl, jobDescription });
+      await saveCheckpoint(pool, sessionId, STEPS.LOGGED, {});
+    } catch (logError) {
+      console.log(`⚠️ DB log failed (non-critical): ${logError.message}`);
+    }
 
+    // ── Complete ──────────────────────────────────────────────────────────────
+    await markComplete(pool, sessionId);
 
-    const analysisKey = aiProvider === 'gemini' ? geminiKey2 : (chatgptKey2 || chatgptApiKey);
-    const optimizationPoints = await generateAIContent(optimizationPrompt, aiProvider, analysisKey);
     const pointCount = (optimizationPoints.match(/POINT \d+:/g) || []).length;
-    console.log(`✅ Generated ${pointCount} optimization points`);
-    console.log(`✅ optimization points -----> ${optimizationPoints} `);
-    // Extract filename
-    let suggestedFileName = null;
-    const filenameMatch = optimizationPoints.match(/FILENAME:\s*(.+?)(?:\n|$)/i);
-    if (filenameMatch) {
-      suggestedFileName = filenameMatch[1].trim();
-      console.log(`📝 Suggested filename: ${suggestedFileName}`);
+
+    res.json({
+      success:             true,
+      status:              '✅ Resume Optimized Successfully!',
+      sessionId:           sessionId,
+      aiProvider:          aiProvider,
+      portalName:          atsAnalysis.portalName,
+      portalAnalysis:      atsAnalysis.fullAnalysis,
+      selectedResume:      resumeSelection.selectedResume,
+      resumeType:          resumeType,
+      selectionConfidence: resumeSelection.confidence,
+      selectionReasoning:  resumeSelection.reasoning,
+      keysUsed:            aiProvider === 'gemini' ? '3 Gemini keys' : '1 ChatGPT key',
+      contentSource:       contentSource,
+      fileName:            fileName,
+      companyName:         companyName,
+      position:            position,
+      links: {
+        editInGoogleDocs: resumeLink,
+        downloadPDF:      `https://docs.google.com/document/d/${fileId}/export?format=pdf`,
+        downloadWord:     `https://docs.google.com/document/d/${fileId}/export?format=docx`,
+        trackingSheet:    `https://docs.google.com/spreadsheets/d/${TRACKING_SHEET_ID}/edit`
+      },
+      documentId:          fileId,
+      optimizationPoints:  pointCount
+    });
+
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+    res.status(500).json({
+      error:   'Resume optimization failed',
+      details: error.message
+    });
+  }
+});
+
+// GET /api/optimize-resume/session/:sessionId — check session status
+app.get('/api/optimize-resume/session/:sessionId', async (req, res) => {
+  try {
+    const cp = await loadCheckpoint(pool, req.params.sessionId);
+    if (!cp) return res.status(404).json({ error: 'Session not found' });
+    res.json({
+      sessionId:    cp.sessionId,
+      step:         cp.step,
+      status:       cp.status,
+      companyName:  cp.companyName,
+      position:     cp.position,
+      errorMessage: cp.errorMessage,
+      updatedAt:    cp.updatedAt
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =====================================================
+// BATCH OPTIMIZE — Core function (reusable for single + batch)
+// =====================================================
+
+async function optimizeSingleJob({ jobUrl, aiProvider, geminiKey1, geminiKey2, geminiKey3, chatgptApiKey, chatgptKey2, chatgptKey3, onProgress }) {
+  const log = (msg) => {
+    console.log(msg);
+    if (onProgress) onProgress(msg);
+  };
+
+  const jobPostUrl = jobUrl;
+  const contentSource = 'url_fetch';
+
+  // ---- Step 1: Fetch JD via Playwright ----
+  log('📄 Fetching job page...');
+  const { chromium: chromiumFetch } = require('playwright');
+  let browser = null;
+  let pageText = '';
+
+  try {
+    browser = await chromiumFetch.launch({ headless: true });
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    });
+    await context.route('**/*', (route) => {
+      const type = route.request().resourceType();
+      if (['image', 'font', 'media', 'stylesheet'].includes(type)) route.abort();
+      else route.continue();
+    });
+    const page = await context.newPage();
+    await page.goto(jobUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForTimeout(5000);
+
+    for (let i = 0; i < 6; i++) {
+      const textLen = await page.evaluate(() => document.body.innerText.trim().length).catch(() => 0);
+      if (textLen > 500) break;
+      log(`⏳ Page still loading (${textLen} chars), waiting...`);
+      await page.waitForTimeout(2500);
     }
 
-    // If filename extraction failed, create from company/position
-    if (!suggestedFileName && companyName !== 'N/A' && position !== 'N/A') {
-      const posClean = position.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-      const compClean = companyName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-      suggestedFileName = `Lokesh_Para_${posClean}_${compClean}`;
-      console.log(`📝 Generated filename from extracted data: ${suggestedFileName}`);
-    }
+    try {
+      for (const sel of ['button[id*="cookie" i]', 'button[class*="accept" i]', '.onetrust-accept-btn-handler']) {
+        const btn = await page.$(sel);
+        if (btn) { await btn.click().catch(() => {}); break; }
+      }
+    } catch (_) {}
+    pageText = await page.evaluate(() => {
+      ['nav','header','footer','script','style','noscript','[role="navigation"]','aside'].forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => el.remove());
+      });
+      return document.body.innerText.replace(/\t/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    });
+  } catch (err) {
+    log(`⚠️ Playwright failed: ${err.message}, trying axios...`);
+    const axiosResp = await axios.get(jobUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' },
+      timeout: 30000, maxRedirects: 5
+    });
+    pageText = axiosResp.data.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
 
-    // Step 5: Rewrite resume
-    console.log('✍️ Step 5: Rewriting resume...');
+  if (!pageText || pageText.length < 50) throw new Error('No JD found — page returned no content');
 
-    // Replace the rewritePrompt variable with this:
+  // ---- Step 2: AI extract JD ----
+  log('🤖 Extracting job description...');
+  const truncatedText = pageText.length > 15000 ? pageText.substring(0, 15000) : pageText;
+  const extractionKey = aiProvider === 'gemini' ? geminiKey1 : chatgptApiKey;
+  const jobDescription = await generateAIContent(
+    `Extract the job description from this page text. Return ONLY job-related content.
+If this page does NOT contain a job description (e.g. it's a login page, homepage, error page, or unrelated page), respond with exactly: NO_JOB_DESCRIPTION
 
-// Replace the rewritePrompt variable with this:
+Output format (only if job found):
+Job Title: [title]
+Company: [company]
+Location: [location]
 
-// ====================================================
-// UPDATED REWRITE PROMPT (Replace lines 1085-1426)
-// ====================================================
+[Full job description]
+Pay Range: [pay range]
+about the company: [about the company]
+PAGE TEXT:
+${truncatedText}`,
+    aiProvider, extractionKey
+  );
 
-const rewritePrompt = `You are a senior technical resume writer. Your mission: Apply optimization points while keeping the resume HUMAN-WRITTEN and INTERVIEW-SAFE.
+  // Validate AI actually found a JD
+  const jdClean = jobDescription.trim();
+  const jdLower = jdClean.toLowerCase();
+
+  // Strip the headers to measure actual content length
+  const jdBody = jdClean
+    .replace(/^(Job Title|Company|Location|Pay Range|About the company)\s*[:]\s*.*/gim, '')
+    .replace(/N\/A/gi, '')
+    .replace(/\n/g, ' ')
+    .trim();
+
+  const noJdPatterns = /no job.*(description|content|posting|found|available)|not a job|no jd found|cannot extract|could not find|does not contain|no relevant (job|content)|page does not|unable to extract|no meaningful/i;
+
+  if (
+    jdClean === 'NO_JOB_DESCRIPTION' ||
+    jdLower.startsWith('no_job') ||
+    jdBody.length < 80 ||
+    noJdPatterns.test(jdClean)
+  ) {
+    throw new Error('No JD found — this link does not contain a job description');
+  }
+
+  // ---- Step 3: Extract company/position ----
+  log('🔍 Extracting job details...');
+  const jobDetails = await extractJobDetails(jobDescription, aiProvider, extractionKey);
+  const companyName = jobDetails.company;
+  const position = jobDetails.position;
+  log(`🏢 ${companyName} — ${position}`);
+
+  // ---- Step 4: ATS + resume selection ----
+  log('🎯 Analyzing portal & selecting resume...');
+  const atsAnalysis = await detectATSAndStrategy(jobPostUrl, jobDescription, aiProvider, extractionKey);
+  const resumeSelection = await selectBestResume(jobDescription, aiProvider, extractionKey);
+
+  let selectedResumeId, resumeType;
+  switch (resumeSelection.selectedResume) {
+    case 'FRONTEND': selectedResumeId = FRONTEND_RESUME_DOC_ID; resumeType = 'Frontend Resume'; break;
+    default: selectedResumeId = FULLSTACK_RESUME_DOC_ID; resumeType = 'Full Stack Resume'; break;
+  }
+
+  // ---- Step 5: Get resume ----
+  const resumeDoc = await docs.documents.get({ documentId: selectedResumeId });
+  const originalResume = extractTextFromDoc(resumeDoc.data);
+
+  // ---- Step 6: Generate optimization points ----
+  log('💡 Generating optimization points...');
+  const projectReadmes = loadProjectReadmes();
+  const analysisKey = aiProvider === 'gemini' ? geminiKey2 : (chatgptKey2 || chatgptApiKey);
+
+  const optimizationPrompt = buildOptimizationPointsPrompt({
+    resumeType, originalResume, jobDescription,
+    portalName: atsAnalysis.portalName, projectReadmes,
+    companyContext
+  });
+
+  const optimizationPoints = await generateAIContent(optimizationPrompt, aiProvider, analysisKey);
+  const pointCount = (optimizationPoints.match(/POINT \d+:/g) || []).length;
+  log(`✅ Generated ${pointCount} optimization points`);
+
+  // ---- Step 7: Rewrite resume ----
+  log('✍️ Rewriting resume...');
+  const rewriteKey = aiProvider === 'gemini' ? geminiKey3 : (chatgptKey3 || chatgptApiKey);
+
+  const rewritePrompt = `You are a senior technical resume writer. Your mission: Apply optimization points while keeping the resume HUMAN-WRITTEN and INTERVIEW-SAFE.
 
 ====================================================
 SECTION 1: CRITICAL CONTEXT
@@ -1298,7 +1999,7 @@ Southern Arkansas University | Magnolia, Arkansas, USA
 ❌ Never change: Section order (Experience → Projects → Skills → Certifications → Education)
 ❌ Never change: Certifications or Education text
 ❌ Never change: Project names or core project technologies
-✅ Title must be "Software Engineer" (never change)
+✅ Title must be "Software Developer" (never change)
 
 ====================================================
 SECTION 4: APPLYING OPTIMIZATION POINTS
@@ -1595,102 +2296,148 @@ Resume should be ready to copy-paste into Google Doc.
 Begin output now:
 `;
 
+  const optimizedResume = await generateAIContent(rewritePrompt, aiProvider, rewriteKey);
 
+  // ---- Step 8: HTML + upload ----
+  log('☁️ Uploading to Google Drive...');
+  const styledHtml = convertToStyledHTML(optimizedResume);
 
-    const rewriteKey = aiProvider === 'gemini' ? geminiKey3 : (chatgptKey3 || chatgptApiKey);
-    const optimizedResume = await generateAIContent(rewritePrompt, aiProvider, rewriteKey);
-    console.log(`✅ Resume rewritten (${optimizedResume.length} chars)`);
-    console.log(`Rewrite resume ======> ${optimizedResume}`);
+  const posClean = position.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+  const compClean = companyName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+  const fileName = `Lokesh_Para_${posClean}_${compClean}`;
 
-    // Step 6: Convert to HTML
-    console.log('🎨 Step 6: Converting to HTML...');
-    const styledHtml = convertToStyledHTML(optimizedResume);
+  const file = await drive.files.create({
+    requestBody: { name: fileName, parents: [DRIVE_FOLDER_ID], mimeType: 'application/vnd.google-apps.document' },
+    media: { mimeType: 'text/html', body: styledHtml },
+    fields: 'id'
+  });
 
-    // Step 7: Upload to Google Drive
-    console.log('☁️ Step 7: Uploading to Google Drive...');
+  const fileId = file.data.id;
+  const resumeLink = `https://docs.google.com/document/d/${fileId}/edit`;
+  await setDocumentFormatting(fileId);
 
-    let fileName = suggestedFileName;
-    if (!fileName) {
-      const timestamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0];
-      fileName = `Lokesh_Para_Optimized_${timestamp}`;
-    }
-    console.log(`📄 Filename: ${fileName}`);
+  // ---- Step 9: Log to DB ----
+  await logApplicationToDB({ companyName, position, resumeLink, jobPostUrl, jobDescription });
 
-    const file = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [DRIVE_FOLDER_ID],
-        mimeType: 'application/vnd.google-apps.document'
-      },
-      media: {
-        mimeType: 'text/html',
-        body: styledHtml
-      },
-      fields: 'id'
-    });
+  log(`✅ Done: ${companyName} — ${position}`);
 
-    const fileId = file.data.id;
-    const resumeLink = `https://docs.google.com/document/d/${fileId}/edit`;
-    console.log('✅ Document created! ID:', fileId);
+  return {
+    success: true,
+    jobUrl,
+    companyName,
+    position,
+    fileName,
+    resumeType,
+    resumeLink,
+    downloadPDF: `https://docs.google.com/document/d/${fileId}/export?format=pdf`,
+    optimizationPoints: pointCount
+  };
+}
 
-    // Apply page formatting
-    await setDocumentFormatting(fileId);
+// =====================================================
+// BATCH OPTIMIZE ENDPOINT (SSE for real-time progress)
+// =====================================================
 
-    // // Step 8: Log to Google Sheets
-    // await logToGoogleSheet({
-    //   companyName: companyName,
-    //   position: position,
-    //   resumeLink: resumeLink,
-    //   jobPostUrl: jobPostUrl,
-    //   contacts: '',
-    //   fileName: fileName
-    // });
+app.post('/api/batch-optimize', async (req, res) => {
+  console.log('\n📦 Batch optimize request received');
+  const { urls, aiProvider, batchSize } = req.body;
 
-    // Step 8: Log to PostgreSQL
-    await logApplicationToDB({
-      companyName,
-      position,
-      resumeLink,
-      jobPostUrl,
-      jobDescription
-    });
-
-
-    res.json({
-      success: true,
-      status: '✅ Resume Optimized Successfully!',
-      aiProvider: aiProvider,
-      portalName: atsAnalysis.portalName,
-      portalAnalysis: atsAnalysis.fullAnalysis,
-      selectedResume: resumeSelection.selectedResume,           // NEW
-      resumeType: resumeType,                                   // NEW
-      selectionConfidence: resumeSelection.confidence,          // NEW
-      selectionReasoning: resumeSelection.reasoning,            // NEW
-      keysUsed: aiProvider === 'gemini' ? '3 Gemini keys' : '1 ChatGPT key',
-      contentSource: contentSource,
-      fileName: fileName,
-      companyName: companyName,
-      position: position,
-      links: {
-        editInGoogleDocs: resumeLink,
-        downloadPDF: `https://docs.google.com/document/d/${fileId}/export?format=pdf`,
-        downloadWord: `https://docs.google.com/document/d/${fileId}/export?format=docx`,
-        trackingSheet: `https://docs.google.com/spreadsheets/d/${TRACKING_SHEET_ID}/edit`
-      },
-      documentId: fileId,
-      optimizationPoints: pointCount
-    });
-
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-    res.status(500).json({
-      error: 'Resume optimization failed',
-      details: error.message
-    });
+  if (!urls || !Array.isArray(urls) || urls.length === 0) {
+    console.log('❌ Batch: No URLs provided');
+    return res.status(400).json({ error: 'No URLs provided' });
   }
+  if (!aiProvider) {
+    console.log('❌ Batch: No AI provider');
+    return res.status(400).json({ error: 'AI provider is required' });
+  }
+
+  // Resolve keys with .env fallback (use same key for all 3 slots if only 1 exists)
+  const envChatgpt = process.env.CHATGPT_API_KEY || process.env.OPENAI_API_KEY;
+  const envGemini = process.env.GEMINI_API_KEY;
+
+  const geminiKey1 = req.body.geminiKey1 || envGemini;
+  const geminiKey2 = req.body.geminiKey2 || envGemini;
+  const geminiKey3 = req.body.geminiKey3 || envGemini;
+  const chatgptApiKey = req.body.chatgptApiKey || envChatgpt;
+  const chatgptKey2 = req.body.chatgptKey2 || envChatgpt;
+  const chatgptKey3 = req.body.chatgptKey3 || envChatgpt;
+
+  console.log(`📦 Batch: provider=${aiProvider}, urls=${urls.length}, keys resolved: chatgpt=${!!chatgptApiKey}, gemini=${!!geminiKey1}`);
+
+  // Validate resolved keys
+  if (aiProvider === 'gemini' && !geminiKey1) {
+    console.log('❌ Batch: No Gemini key');
+    return res.status(400).json({ error: 'Gemini key required. Set GEMINI_API_KEY in .env or enter key manually.' });
+  }
+  if (aiProvider === 'chatgpt' && !chatgptApiKey) {
+    console.log('❌ Batch: No ChatGPT key');
+    return res.status(400).json({ error: 'ChatGPT key required. Set CHATGPT_API_KEY in .env or enter key manually.' });
+  }
+
+  // Set up SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (res.flush) res.flush(); // force flush for immediate delivery
+  };
+
+  const cleanUrls = urls.map(u => u.trim()).filter(u => u.length > 0);
+  const total = cleanUrls.length;
+  const concurrency = Math.min(batchSize || 2, 3); // max 3 parallel
+
+  send('start', { total, concurrency });
+  console.log(`🚀 Batch optimize: ${total} URLs, ${concurrency} parallel`);
+
+  const results = [];
+  let completed = 0;
+
+  // Process in batches of `concurrency`
+  for (let i = 0; i < cleanUrls.length; i += concurrency) {
+    const batch = cleanUrls.slice(i, i + concurrency);
+    console.log(`📦 Batch ${Math.floor(i / concurrency) + 1}: processing ${batch.length} URLs`);
+
+    const batchPromises = batch.map((url, batchIdx) => {
+      const jobIndex = i + batchIdx;
+      send('job_start', { index: jobIndex, url });
+
+      return optimizeSingleJob({
+        jobUrl: url,
+        aiProvider,
+        geminiKey1, geminiKey2, geminiKey3,
+        chatgptApiKey, chatgptKey2, chatgptKey3,
+        onProgress: (msg) => send('progress', { index: jobIndex, url, message: msg })
+      }).then(result => {
+        completed++;
+        console.log(`✅ [${completed}/${total}] ${result.companyName} — ${result.position}`);
+        send('job_done', { index: jobIndex, url, result, completed, total });
+        results.push(result);
+        return result;
+      }).catch(err => {
+        completed++;
+        console.log(`❌ [${completed}/${total}] ${url}: ${err.message}`);
+        const errorResult = { success: false, jobUrl: url, error: err.message };
+        send('job_error', { index: jobIndex, url, error: err.message, completed, total });
+        results.push(errorResult);
+        return errorResult;
+      });
+    });
+
+    await Promise.allSettled(batchPromises);
+  }
+
+  const succeeded = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  console.log(`\n📦 Batch complete: ${succeeded} succeeded, ${failed} failed out of ${total}`);
+
+  send('complete', { total, succeeded, failed, results });
+  res.end();
 });
 
-// Helper: Extract text from Google Doc (NO CHANGES NEEDED)
 function extractTextFromDoc(doc) {
   let text = '';
   const content = doc.body.content;
@@ -1740,7 +2487,7 @@ function convertToStyledHTML(text) {
   
   body {
     font-family: Calibri, sans-serif;
-    font-size: 11pt;
+    font-size: 9pt;
     line-height: 1.00;
     margin: 0.5in 0.5in;
     color: #000000;
@@ -1748,15 +2495,18 @@ function convertToStyledHTML(text) {
   
   /* Header - Name */
   .name {
-    font-size: 18pt;
+    font-size: 28pt;
     font-weight: bold;
     text-align: center;
     margin-bottom: 2pt;
+    color: #1D2D50;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
   
   /* Header - Title */
   .title {
-    font-size: 11pt;
+    font-size: 13pt;
     font-weight: bold;
     text-align: center;
     margin-bottom: 2pt;
@@ -1768,21 +2518,23 @@ function convertToStyledHTML(text) {
     text-align: center;
     margin-bottom: 2pt;
     line-height: 1.2;
+    color: #2E4057;
   }
   
   .contact a {
-    color: #000000;
+    color: #2E4057;
     text-decoration: none;
   }
   
   /* Section Headers - Tight spacing */
   .section-header {
-    font-size: 13pt;
-    font-weight: bold;
-    color: #000000;
     margin-top: 2pt;
     margin-bottom: 4pt;
+    font-size: 13pt;
+    font-weight: bold;
+    color: #1D2D50;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
   
   /* Company Header - Bold */
@@ -1815,8 +2567,9 @@ function convertToStyledHTML(text) {
   
   /* Job Date - Italic */
   .job-date {
-    font-size: 11pt;
-    margin-bottom: 4pt;
+    font-size: 10pt;
+    margin-bottom: 3pt;
+    color: #6B7A8D;
   }
   
   /* Bullet List - For experience AND projects */
@@ -1843,6 +2596,8 @@ function convertToStyledHTML(text) {
   
   .skills-para strong {
     font-weight: bold;
+    color: #1D2D50;
+
   }
   
   /* Education - Tight spacing */
@@ -2039,7 +2794,10 @@ function convertToStyledHTML(text) {
          line.includes('LPL') || line.includes('Athenahealth') || 
          line.includes('YES Bank') || line.includes('Comcast'))) {
       flushBullets();
-      html += `<div class="company-header">${line}</div>\n`;
+      const pipeIdx = line.indexOf('|');
+      const title = line.substring(0, pipeIdx).trim();
+      const company = line.substring(pipeIdx + 1).trim();
+      html += `<div class="company-header">${title}<span style="color:#6B7A8D;font-weight:normal"> | </span><span style="color:#2E4057">${company}</span></div>\n`;
       continue;
     }
 
@@ -2053,7 +2811,7 @@ function convertToStyledHTML(text) {
         !inProjects &&
         !inCertifications) {
       flushBullets();
-      html += `<div class="job-date">${line}</div>\n`;
+      html += `<div class="job-date" style="font-size:10pt;color:#6B7A8D;font-style:italic;margin-bottom:3pt;">${line}</div>\n`;
       continue;
     }
 
@@ -2169,6 +2927,8 @@ async function setDocumentFormatting(documentId) {
     console.error('⚠️ Failed to set formatting:', error.message);
   }
 }
+
+
 
 
 
@@ -2930,21 +3690,51 @@ app.get('/application/:id', (req, res) => {
 });
 
 // =====================================================
-// START SERVER
+// AUTO-APPLY PAGE ROUTES
 // =====================================================
-// Start server
-app.listen(PORT, () => {
-  console.log(`\n🚀 Resume Optimizer Backend Running!`);
-  console.log(`📍 http://localhost:${PORT}`);
-  console.log(`✅ Health: http://localhost:${PORT}/health`);
-  console.log(`🤖 Supports: Gemini AI & ChatGPT`);
-  console.log(`🎯 ATS Target: 100% Match Rate\n`);
+app.get('/auto-apply', (req, res) => {
+  res.sendFile(__dirname + '/public/auto-apply.html');
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🚀 Job Tracker Server Running!`);
-  console.log(`📍 http://localhost:${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard\n`);
+app.get('/auto-apply/live', (req, res) => {
+  res.sendFile(__dirname + '/public/auto-apply-live.html');
+});
+
+app.get('/profile-settings', (req, res) => {
+  res.sendFile(__dirname + '/public/profile-settings.html');
+});
+
+app.get('/auto-apply/:id', (req, res) => res.redirect(`/application/${req.params.id}`));
+
+// =====================================================
+// DATABASE TABLE CREATION
+// =====================================================
+createCheckpointTable(pool);
+createBotSessionsTable(pool);
+
+// =====================================================
+// START SERVER WITH WEBSOCKET
+// =====================================================
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws/auto-apply' });
+
+registerAutoApplyRoutes(app, { pool, generateAIContent, wss, WebSocket });
+
+wss.on('connection', (ws) => {
+  console.log('WebSocket client connected (auto-apply)');
+  const { botState } = require('./auto-apply/bot-state');
+  ws.send(JSON.stringify({ type: 'bot_state', data: botState.snapshot() }));
+  ws.on('close', () => console.log('WebSocket disconnected'));
+  ws.on('error', (err) => console.error('WebSocket error:', err.message));
+});
+
+server.listen(PORT, () => {
+  console.log(`\nResume Optimizer Backend Running!`);
+  console.log(`http://localhost:${PORT}`);
+  console.log(`Dashboard: http://localhost:${PORT}/dashboard`);
+  console.log(`Auto Apply: http://localhost:${PORT}/auto-apply`);
+  console.log(`Profile Settings: http://localhost:${PORT}/profile-settings`);
+  console.log('');
 });
 
 // =====================================================
@@ -2952,7 +3742,7 @@ app.listen(PORT, () => {
 // =====================================================
 
 process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled rejection:', err);
+  console.error('Unhandled rejection:', err);
 });
 
 process.on('SIGTERM', async () => {
@@ -2960,4 +3750,3 @@ process.on('SIGTERM', async () => {
   await pool.end();
   process.exit(0);
 });
-

@@ -580,3 +580,5 @@ function displayRecruiterResults(data) {
     // Show success message
     alert(`✅ Success! Found ${data.recruiters.length} recruiter(s) and created ${data.stats.draftsCreated} email draft(s).\n\nCheck your Gmail drafts to review and send.`);
 }
+
+// Auto-apply functions are now handled by auto-apply.js (loaded separately)

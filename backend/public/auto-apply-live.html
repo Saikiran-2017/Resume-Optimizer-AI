@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto Apply — Live View</title>
+    <link rel="stylesheet" href="/auto-apply.css" />
+</head>
+<body style="background:#f5f5f0; min-height:100vh; margin:0;">
+
+<div class="auto-apply-container">
+
+    <div class="auto-apply-header">
+        <h1>Live Bot View</h1>
+        <p>Real-time view of the auto-apply bot — control it from here</p>
+        <div class="header-actions">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/auto-apply">New Application</a>
+        </div>
+    </div>
+
+    <!-- Live Panel -->
+    <div id="botLivePanel" class="bot-live-panel">
+        <div class="live-header">
+            <span id="liveState" class="live-state">CONNECTING...</span>
+            <span id="liveAts"></span>
+            <span id="livePage" class="live-page"></span>
+            <div class="live-counts">
+                <span class="count-filled">Filled: <strong id="liveFilled">0</strong></span>
+                <span class="count-flagged">Flagged: <strong id="liveFlagged">0</strong></span>
+            </div>
+        </div>
+        <div class="live-current" id="liveCurrent">Connecting to bot...</div>
+        <div class="live-controls" id="liveControls"></div>
+        <div class="flagged-list hidden" id="liveFlaggedList"></div>
+        <div class="live-log-header">Activity Log</div>
+        <div class="live-log" id="liveLog"></div>
+    </div>
+
+</div>
+
+<script>
+// This page is standalone — auto-apply.js handles everything
+const IS_LIVE_PAGE = true;
+</script>
+<script src="/auto-apply.js"></script>
+</body>
+</html>

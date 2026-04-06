@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 680" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <filter id="sh3" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <marker id="a1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#60a5fa"/>
+    </marker>
+    <marker id="a2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#34d399"/>
+    </marker>
+    <marker id="a3" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24"/>
+    </marker>
+    <marker id="a4" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa"/>
+    </marker>
+    <marker id="a5" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f87171"/>
+    </marker>
+    <marker id="a6" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee"/>
+    </marker>
+    <marker id="aDown" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
+      <polygon points="0 0, 3.5 10, 7 0" fill="#fbbf24"/>
+    </marker>
+  </defs>
+
+  <rect width="1100" height="680" rx="16" fill="url(#bg3)"/>
+
+  <!-- Title -->
+  <text x="550" y="40" text-anchor="middle" fill="#f8fafc" font-size="22" font-weight="700">Auto-Apply Bot Flow</text>
+  <text x="550" y="62" text-anchor="middle" fill="#94a3b8" font-size="12">Playwright-powered AI agent for automated job application submission</text>
+
+  <!-- ===== ROW 1: Trigger ===== -->
+  <rect x="30" y="95" width="170" height="80" rx="10" fill="#ec4899" filter="url(#sh3)"/>
+  <text x="115" y="122" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">DASHBOARD UI</text>
+  <text x="115" y="142" text-anchor="middle" fill="#fce7f3" font-size="9">User clicks "Start Bot"</text>
+  <text x="115" y="158" text-anchor="middle" fill="#f9a8d4" font-size="8">Job URL + Profile Config</text>
+
+  <line x1="200" y1="135" x2="245" y2="135" stroke="#60a5fa" stroke-width="2" marker-end="url(#a1)"/>
+  <text x="222" y="128" text-anchor="middle" fill="#94a3b8" font-size="8">POST</text>
+
+  <rect x="250" y="95" width="170" height="80" rx="10" fill="#3b82f6" filter="url(#sh3)"/>
+  <text x="335" y="122" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">API ROUTE</text>
+  <text x="335" y="142" text-anchor="middle" fill="#dbeafe" font-size="9">/api/auto-apply/start</text>
+  <text x="335" y="158" text-anchor="middle" fill="#93c5fd" font-size="8">Validates &amp; queues job</text>
+
+  <line x1="420" y1="135" x2="465" y2="135" stroke="#34d399" stroke-width="2" marker-end="url(#a2)"/>
+
+  <rect x="470" y="95" width="170" height="80" rx="10" fill="#10b981" filter="url(#sh3)"/>
+  <text x="555" y="122" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">PIPELINE</text>
+  <text x="555" y="142" text-anchor="middle" fill="#d1fae5" font-size="9">pipeline.js orchestrator</text>
+  <text x="555" y="158" text-anchor="middle" fill="#6ee7b7" font-size="8">Launch Playwright browser</text>
+
+  <line x1="640" y1="135" x2="685" y2="135" stroke="#fbbf24" stroke-width="2" marker-end="url(#a3)"/>
+
+  <rect x="690" y="95" width="170" height="80" rx="10" fill="#f59e0b" filter="url(#sh3)"/>
+  <text x="775" y="122" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">ATS DETECTOR</text>
+  <text x="775" y="142" text-anchor="middle" fill="#fef3c7" font-size="9">detector.js identifies ATS</text>
+  <text x="775" y="158" text-anchor="middle" fill="#fcd34d" font-size="8">Workday | Greenhouse | Generic</text>
+
+  <line x1="860" y1="135" x2="905" y2="135" stroke="#a78bfa" stroke-width="2" marker-end="url(#a4)"/>
+
+  <rect x="910" y="95" width="160" height="80" rx="10" fill="#8b5cf6" filter="url(#sh3)"/>
+  <text x="990" y="122" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">NAVIGATE</text>
+  <text x="990" y="142" text-anchor="middle" fill="#ede9fe" font-size="9">Find "Apply" button</text>
+  <text x="990" y="158" text-anchor="middle" fill="#c4b5fd" font-size="8">Open application form</text>
+
+  <!-- ===== ROW 2: ATS Handlers ===== -->
+  <text x="550" y="215" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600">ATS-Specific Handlers</text>
+
+  <rect x="70" y="235" width="280" height="95" rx="10" fill="#334155" filter="url(#sh3)" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="210" y="260" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">Workday Handler</text>
+  <text x="210" y="280" text-anchor="middle" fill="#cbd5e1" font-size="9">Multi-step wizard navigation</text>
+  <text x="210" y="296" text-anchor="middle" fill="#cbd5e1" font-size="9">Login with credentials (env vars)</text>
+  <text x="210" y="312" text-anchor="middle" fill="#94a3b8" font-size="8">ats/workday.js  complex form flows</text>
+
+  <rect x="410" y="235" width="280" height="95" rx="10" fill="#334155" filter="url(#sh3)" stroke="#10b981" stroke-width="1.5"/>
+  <text x="550" y="260" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Greenhouse Handler</text>
+  <text x="550" y="280" text-anchor="middle" fill="#cbd5e1" font-size="9">Standard application forms</text>
+  <text x="550" y="296" text-anchor="middle" fill="#cbd5e1" font-size="9">File upload (resume PDF)</text>
+  <text x="550" y="312" text-anchor="middle" fill="#94a3b8" font-size="8">ats/greenhouse.js  structured fields</text>
+
+  <rect x="750" y="235" width="280" height="95" rx="10" fill="#334155" filter="url(#sh3)" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="890" y="260" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="700">Generic Handler</text>
+  <text x="890" y="280" text-anchor="middle" fill="#cbd5e1" font-size="9">AI-powered page analysis</text>
+  <text x="890" y="296" text-anchor="middle" fill="#cbd5e1" font-size="9">Lever + unknown ATS support</text>
+  <text x="890" y="312" text-anchor="middle" fill="#94a3b8" font-size="8">ats/generic.js  adaptive approach</text>
+
+  <!-- ===== ROW 3: Core Modules ===== -->
+  <text x="550" y="375" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600">Core Processing Modules</text>
+
+  <rect x="30" y="395" width="200" height="85" rx="10" fill="#06b6d4" filter="url(#sh3)"/>
+  <text x="130" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">PAGE SCANNER</text>
+  <text x="130" y="440" text-anchor="middle" fill="#cffafe" font-size="9">DOM field discovery</text>
+  <text x="130" y="456" text-anchor="middle" fill="#cffafe" font-size="9">Label &amp; input detection</text>
+  <text x="130" y="470" text-anchor="middle" fill="#67e8f9" font-size="8">page-scanner.js</text>
+
+  <line x1="230" y1="437" x2="270" y2="437" stroke="#22d3ee" stroke-width="2" marker-end="url(#a6)"/>
+
+  <rect x="275" y="395" width="200" height="85" rx="10" fill="#8b5cf6" filter="url(#sh3)"/>
+  <text x="375" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">FIELD AI</text>
+  <text x="375" y="440" text-anchor="middle" fill="#ede9fe" font-size="9">Map profile � form fields</text>
+  <text x="375" y="456" text-anchor="middle" fill="#ede9fe" font-size="9">AI generates answers</text>
+  <text x="375" y="470" text-anchor="middle" fill="#c4b5fd" font-size="8">field-ai.js + profile.json</text>
+
+  <line x1="475" y1="437" x2="515" y2="437" stroke="#a78bfa" stroke-width="2" marker-end="url(#a4)"/>
+
+  <rect x="520" y="395" width="200" height="85" rx="10" fill="#10b981" filter="url(#sh3)"/>
+  <text x="620" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">FIELD FILLER</text>
+  <text x="620" y="440" text-anchor="middle" fill="#d1fae5" font-size="9">Type text, select options</text>
+  <text x="620" y="456" text-anchor="middle" fill="#d1fae5" font-size="9">Upload files, check boxes</text>
+  <text x="620" y="470" text-anchor="middle" fill="#6ee7b7" font-size="8">field-filler.js</text>
+
+  <line x1="720" y1="437" x2="760" y2="437" stroke="#34d399" stroke-width="2" marker-end="url(#a2)"/>
+
+  <rect x="765" y="395" width="200" height="85" rx="10" fill="#f59e0b" filter="url(#sh3)"/>
+  <text x="865" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">AI AGENT</text>
+  <text x="865" y="440" text-anchor="middle" fill="#fef3c7" font-size="9">Agentic loop: read � plan</text>
+  <text x="865" y="456" text-anchor="middle" fill="#fef3c7" font-size="9">� execute � verify</text>
+  <text x="865" y="470" text-anchor="middle" fill="#fcd34d" font-size="8">ai-agent.js + agent-executor.js</text>
+
+  <!-- ===== ROW 4: State & Output ===== -->
+  <rect x="30" y="520" width="330" height="80" rx="10" fill="#334155" filter="url(#sh3)" stroke="#ec4899" stroke-width="1.5"/>
+  <text x="195" y="547" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="700">BOT STATE MACHINE</text>
+  <text x="195" y="567" text-anchor="middle" fill="#cbd5e1" font-size="9">idle � navigating � scanning � filling � reviewing � submitting � completed</text>
+  <text x="195" y="583" text-anchor="middle" fill="#94a3b8" font-size="8">bot-state.js  EventEmitter � WebSocket broadcast to UI</text>
+
+  <line x1="360" y1="560" x2="400" y2="560" stroke="#f87171" stroke-width="2" marker-end="url(#a5)"/>
+
+  <rect x="405" y="520" width="280" height="80" rx="10" fill="#ef4444" filter="url(#sh3)"/>
+  <text x="545" y="547" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">SESSION PERSISTENCE</text>
+  <text x="545" y="567" text-anchor="middle" fill="#fecaca" font-size="9">PostgreSQL bot_sessions table</text>
+  <text x="545" y="583" text-anchor="middle" fill="#fca5a5" font-size="8">Status, logs, timing, error tracking</text>
+
+  <line x1="685" y1="560" x2="725" y2="560" stroke="#60a5fa" stroke-width="2" marker-end="url(#a1)"/>
+
+  <rect x="730" y="520" width="340" height="80" rx="10" fill="#3b82f6" filter="url(#sh3)"/>
+  <text x="900" y="547" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">LIVE DASHBOARD (WebSocket)</text>
+  <text x="900" y="567" text-anchor="middle" fill="#dbeafe" font-size="9">/ws/auto-apply  real-time state, logs, progress</text>
+  <text x="900" y="583" text-anchor="middle" fill="#93c5fd" font-size="8">auto-apply-live.html  live monitoring view</text>
+
+  <!-- Legend -->
+  <rect x="30" y="625" width="1040" height="40" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="50" y="650" fill="#94a3b8" font-size="11" font-weight="600">FLOW:</text>
+  <text x="100" y="650" fill="#cbd5e1" font-size="10">Dashboard � API � Pipeline � ATS Detect � Handler � Page Scan � AI Map � Fill � Agent Loop � Submit � State Update � WebSocket � Live UI</text>
+</svg>
