@@ -30,5 +30,9 @@ npm-debug.log*
 credentials.json
 token.json
 
+.env
+.env.local
+backend/.env
+
 # Auto-apply bot browser profile (persistent cookies/sessions)
 backend/auto-apply/.browser-profile/
