@@ -170,7 +170,7 @@ RULES:
 2. Key = the field "key" value shown above (use the EXACT key string in quotes)
 3. For SELECT/DROPDOWN fields: return EXACTLY one of the option texts shown (case-sensitive). Example: options=["Select One","Yes","No"] → return "Yes"
 4. For text fields: return appropriate answer from profile
-5. For yes/no sponsorship questions: answer "Yes" (Lokesh DOES require sponsorship)
+5. For yes/no sponsorship questions: answer "Yes" (Sai Kiran P DOES require sponsorship)
 6. "Are you 18 years or older?" → "Yes"
 7. "Do you have a high school diploma?" → "Yes"
 8. "Are you legally authorized to work in the United States?" → "Yes"

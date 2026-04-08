@@ -444,9 +444,9 @@ I'm particularly excited about Chewy's mission to innovate pet health solutions.
 Would you be open to a brief conversation next week to discuss how my background could support Chewy's goals?
 
 Best regards,
-Lokesh Para
-paralokesh5@gmail.com
-682-503-1723
+Sai Kiran P
+saikiran.itcareer@gmail.com
++1 (940) 344-2150
 
 Generate the email now:`;
 

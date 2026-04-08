@@ -1,10 +1,10 @@
 # Resume Optimizer AI - Chrome Extension with AI & Google Workspace Integration
 
-[![GitHub](https://img.shields.io/github/license/lokeshpara/Resume-Optimizer-AI)](https://github.com/lokeshpara/Resume-Optimizer-AI/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/Saikiran-2017/Resume-Optimizer-AI)](https://github.com/Saikiran-2017/Resume-Optimizer-AI/blob/main/LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue)](https://chrome.google.com/webstore)
 [![Google Gemini](https://img.shields.io/badge/Google-Gemini_2.0-4285F4)](https://ai.google.dev/)
-[![Stars](https://img.shields.io/github/stars/lokeshpara/Resume-Optimizer-AI)](https://github.com/lokeshpara/Resume-Optimizer-AI/stargazers)
+[![Stars](https://img.shields.io/github/stars/Saikiran-2017/Resume-Optimizer-AI)](https://github.com/Saikiran-2017/Resume-Optimizer-AI/stargazers)
 
 **AI-powered resume optimization with automatic Google Drive tracking, PostgreSQL database, recruiter automation, and comprehensive 4-score analysis system**
 

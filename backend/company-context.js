@@ -108,7 +108,7 @@ TECH_BEING_REPLACED: [What old tech are they moving away from? E.g. "COBOL mainf
 
 DOMAIN_LANGUAGE: [8-12 specific terms this company uses in their world. E.g. for fintech: "clearing, settlement, broker-dealer, DTC, NSCC, trade confirmation, position reconciliation, custodial accounts, margin calls, DTCC"]
 
-BEST_MATCH_FROM_LOKESH: [Pick the STRONGEST match using TWO criteria scored together:
+BEST_MATCH_FROM_CANDIDATE: [Pick the STRONGEST match using TWO criteria scored together:
   (1) Technical stack overlap — does the tech match what this company uses?
   (2) Seniority and recency — prefer current/recent senior roles over old junior ones
 
@@ -130,7 +130,7 @@ BEST_MATCH_FROM_LOKESH: [Pick the STRONGEST match using TWO criteria scored toge
 
   State which role you picked AND exactly why the technical overlap justifies it.]
 
-NARRATIVE_FRAME: [2-3 sentences. Exactly how should Lokesh position his experience for THIS company? What is the one story to tell? Which specific experience maps most directly to what they are building? Always lead with the best-matched role.]
+NARRATIVE_FRAME: [2-3 sentences. Exactly how should the candidate position their experience for THIS company? What is the one story to tell? Which specific experience maps most directly to what they are building? Always lead with the best-matched role.]
 
 CONFIDENCE: [High / Medium / Low — how confident are you based on the research quality?]`;
 }
@@ -219,7 +219,7 @@ async function fetchCompanyContext({
     console.log(`\n  📊 Company Context:`);
     console.log(`     Problem type : ${parsed.problemType}`);
     console.log(`     Why hiring   : ${parsed.whyHiringNow?.substring(0, 80)}...`);
-    console.log(`     Best match   : ${parsed.bestMatchFromLokesh?.substring(0, 80)}...`);
+    console.log(`     Best match   : ${parsed.bestMatchFromCandidate?.substring(0, 80)}...`);
     console.log(`     Confidence   : ${parsed.confidence}`);
     console.log(`     Sources used : ${contentBlocks.length}\n`);
 
@@ -265,7 +265,7 @@ function parseCompanyContext(rawText) {
     projectContext:      extract('PROJECT_CONTEXT'),
     techBeingReplaced:   extract('TECH_BEING_REPLACED'),
     domainLanguage:      extract('DOMAIN_LANGUAGE'),
-    bestMatchFromLokesh: extract('BEST_MATCH_FROM_LOKESH'),
+    bestMatchFromCandidate: extract('BEST_MATCH_FROM_CANDIDATE'),
     narrativeFrame:      extract('NARRATIVE_FRAME'),
     confidence:          extract('CONFIDENCE'),
     source:              'unknown',
@@ -285,7 +285,7 @@ function getDefaultContext(companyName) {
     projectContext:      'unclear',
     techBeingReplaced:   'unclear',
     domainLanguage:      'unclear',
-    bestMatchFromLokesh: 'unclear',
+    bestMatchFromCandidate: 'unclear',
     narrativeFrame:      'Use full stack experience as general positioning',
     confidence:          'Low',
     source:              'fallback',

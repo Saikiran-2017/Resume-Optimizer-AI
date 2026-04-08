@@ -26,7 +26,8 @@ oauth2Client.setCredentials({
 const docs = google.docs({ version: 'v1', auth: oauth2Client });
 
 // Configuration
-const ORIGINAL_RESUME_DOC_ID = process.env.ORIGINAL_RESUME_DOC_ID;
+// Fallback keeps analysis working even if ORIGINAL_RESUME_DOC_ID is not explicitly set.
+const ORIGINAL_RESUME_DOC_ID = process.env.ORIGINAL_RESUME_DOC_ID || process.env.FULLSTACK_RESUME_DOC_ID || process.env.FRONTEND_RESUME_DOC_ID;
 
 // AI Provider wrapper
 async function generateAIContent(prompt, provider, apiKey) {

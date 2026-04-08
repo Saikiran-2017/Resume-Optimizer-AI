@@ -198,10 +198,8 @@ function loadProjectReadmes() {
     
     // Define paths to README files
     const resumeOptimizerPath = path.join(__dirname, 'project-readmes', 'Resume-Optimizer-AI-README.md');
-    const cifar10Path = path.join(__dirname, 'project-readmes', 'CIFAR10-README.md');
     
     let resumeOptimizerContent = '';
-    let cifar10Content = '';
     
     // Load Resume Optimizer AI README
     if (fs.existsSync(resumeOptimizerPath)) {
@@ -212,25 +210,14 @@ function loadProjectReadmes() {
       resumeOptimizerContent = 'README file not found';
     }
     
-    // Load CIFAR-10 README
-    if (fs.existsSync(cifar10Path)) {
-      cifar10Content = fs.readFileSync(cifar10Path, 'utf8');
-      console.log(`✅ Loaded CIFAR-10 README (${cifar10Content.length} chars)`);
-    } else {
-      console.log('⚠️ CIFAR-10 README not found at:', cifar10Path);
-      cifar10Content = 'README file not found';
-    }
-    
     return {
-      resumeOptimizerReadme: resumeOptimizerContent,
-      cifar10Readme: cifar10Content
+      resumeOptimizerReadme: resumeOptimizerContent
     };
     
   } catch (error) {
     console.error('❌ Error loading README files:', error.message);
     return {
-      resumeOptimizerReadme: 'Error loading README',
-      cifar10Readme: 'Error loading README'
+      resumeOptimizerReadme: 'Error loading README'
     };
   }
 }
@@ -255,7 +242,6 @@ PORTAL: ${portalName}
  
 Project Readmes:
 ${projectReadmes.resumeOptimizerReadme}
-${projectReadmes.cifar10Readme}
  
 ====================================================
 COMPANY CONTEXT
@@ -267,7 +253,7 @@ WHY THIS ROLE EXISTS NOW: ${companyContext ? companyContext.whyHiringNow : 'uncl
 CURRENT PROJECT: ${companyContext ? companyContext.projectContext : 'unclear'}
 TECH BEING REPLACED: ${companyContext ? companyContext.techBeingReplaced : 'unclear'}
 DOMAIN LANGUAGE: ${companyContext ? companyContext.domainLanguage : 'unclear'}
-BEST MATCH FROM LOKESH: ${companyContext ? companyContext.bestMatchFromLokesh : 'unclear'}
+BEST MATCH FROM CANDIDATE: ${companyContext ? companyContext.bestMatchFromCandidate : 'unclear'}
 NARRATIVE FRAME: ${companyContext ? companyContext.narrativeFrame : 'unclear'}
  
 ====================================================
@@ -344,12 +330,12 @@ FOR EVERY MISSING SKILL — add in TWO places:
    - Never bold in Skills section
  
    Realistic placement:
-   - LPL Financial: Cloud, modern frameworks, fintech, market data, portfolio systems
-   - Athenahealth: Healthcare tech, FHIR, compliance, data security
-   - YES Bank: Payments, banking, security, transaction processing
-   - Comcast: Media, streaming, content delivery, scalability
+   - Truist Bank: Banking, fintech, payments, portfolio systems, cloud services
+   - Accenture: Enterprise solutions, consulting, healthcare tech, data integration
+   - HCL Technologies: Full-stack development, microservices, cloud infrastructure
    - Resume Optimizer AI: Full-stack, AI/ML integration, Chrome extensions, Node.js, PostgreSQL, automation
-   - CIFAR-10: PyTorch, TensorFlow, deep learning, CNNs, model optimization
+   - Payments Idempotency: Backend, distributed systems, transaction processing
+   - Clinical Document Automation: Healthcare, automation, AI integration
  
 SKILL ADDITION EXAMPLES:
  
@@ -393,21 +379,24 @@ Use company context to make bullets contextually relevant, not just keyword-matc
 PROJECTS AS COMPETITIVE ADVANTAGE
 ====================================================
  
-Two projects to use strategically:
-1. Resume Optimizer AI — Full-stack Chrome extension, Node.js, PostgreSQL, Google APIs, AI/ML, automation
-2. CIFAR-10 — PyTorch, TensorFlow, deep learning, CNNs, model optimization, training pipelines
+Five projects to use strategically:
+1. Payments Idempotency & Outbox Pattern — Backend patterns, distributed systems, event-driven architecture
+2. Clinical Document Automation — Healthcare automation, AI integration, document processing
+3. GenAI Based Backend Document Search — AI/ML integration, RAG workflows, backend APIs
+4. Resume Optimizer AI — Chrome extension, full-stack, Node.js, PostgreSQL, Google APIs, automation
+5. AI Email Follow-up Agent — Automation, email APIs, agent systems, AI integration
  
 Strategy:
 - Identify JD skills weak or missing from work experience
-- If skill fits Resume Optimizer AI scope → showcase it there
-- If skill fits CIFAR-10 scope → showcase it there
+- If skill fits project scope → showcase it in that project
 - Projects prove you build real things outside work — highly valued
 - Each project: 3-5 bullets, bold JD skills, include metrics
  
 Examples:
-- JD needs PyTorch/TensorFlow → CIFAR-10 is perfect
-- JD needs Chrome extensions/PostgreSQL/REST APIs → Resume Optimizer AI is perfect
-- JD needs Spring Boot/Kafka → already in work experience, reinforce only if heavily emphasized
+- JD needs event-driven/Kafka → Payments Idempotency is perfect
+- JD needs Chrome extensions/PostgreSQL/APIs → Resume Optimizer AI is perfect
+- JD needs healthcare/automation → Clinical Document Automation is perfect
+- JD needs AI/RAG/LLM → GenAI or Email Agent projects are perfect
  
 ====================================================
 BULLET REORDERING
@@ -457,40 +446,40 @@ POINT 1:
 Type: ADD_SKILL
 Skill: Apache Flink
 Where_Skills: Databases & Messaging (existing category)
-Where_Experience_Or_Project: LPL Financial, Bullet 3
+Where_Experience_Or_Project: Truist Bank, Bullet 3
 Integration: "Extend existing Kafka bullet to mention **Flink** for stream processing with 500K events/sec throughput"
 Bold: YES (Flink is from JD)
 Priority: High
-Reasoning: JD lists Flink as required skill; fits existing "Databases & Messaging" category; realistic since candidate has Kafka experience at LPL
+Reasoning: JD lists Flink as required skill; fits existing "Databases & Messaging" category; realistic since candidate has Kafka experience at Truist
  
 POINT 2:
 Type: REORDER_BULLETS
 Section: Experience
-Company: Athenahealth
+Company: Accenture
 Current_Order: 1,2,3,4,5
 New_Order: 4,1,2,3,5
-Reasoning: JD emphasizes FHIR APIs — move FHIR bullet to position 1
+Reasoning: JD emphasizes enterprise architecture — move relevant enterprise bullet to position 1
  
 POINT 3:
 Type: ADD_SKILL
-Skill: TensorFlow, PyTorch
+Skill: LangChain, OpenAI APIs
 Where_Skills: AI & Data (existing category)
-Where_Experience_Or_Project: Projects - CIFAR-10, Bullet 1
-Integration: "Update first bullet to emphasize both **PyTorch** (primary) and **TensorFlow** for model experimentation"
+Where_Experience_Or_Project: Projects - GenAI Based Backend Document Search, Bullet 1
+Integration: "Update first bullet to emphasize both **LangChain** and **OpenAI APIs** for RAG pipeline implementation"
 Bold: YES (both from JD)
 Priority: High
-Reasoning: JD requires deep learning frameworks; CIFAR-10 is the perfect place — more credible than adding to work experience
+Reasoning: JD requires AI/LLM integration; GenAI project is the perfect place — more credible than adding to work experience
  
 POINT 4:
 Type: MODIFY_BULLET
 Section: Experience
-Company: LPL Financial
+Company: Truist Bank
 Bullet: 2
-Current: "Built RESTful APIs integrating market data feeds"
-New: "Built RESTful APIs integrating **Bloomberg** market data feeds for real-time portfolio pricing across 19K advisor accounts"
+Current: "Built RESTful APIs integrating payment systems"
+New: "Built RESTful APIs integrating **Bloomberg** market data feeds for real-time portfolio pricing across advisor accounts"
 Bold: YES (Bloomberg from JD)
 Priority: High
-Reasoning: JD uses clearing/fintech domain language — reframe with their vocabulary
+Reasoning: JD uses fintech/clearing domain language — reframe with their vocabulary
  
 POINT 5:
 Type: REORDER_BULLETS
@@ -531,7 +520,7 @@ OUTPUT RULES
  
 Start directly with "POINT 1:" — no preamble, no commentary.
 End with:
-FILENAME: Lokesh_Para_[JobTitle]_[CompanyName]
+FILENAME: SaiKiran_[JobTitle]_[CompanyName]
  
 Begin output:`;
 }
@@ -841,24 +830,19 @@ ${jobDescription.substring(0, 4000)}
 
 EVALUATE THESE DEALBREAKERS IN ORDER:
 
-1. SPONSORSHIP CHECK
-   Does the JD say "cannot sponsor", "no sponsorship", "must be authorized", 
-   "citizens/PR only", or similar? 
-   → If YES: REJECT immediately
-
-2. PRIMARY STACK MISMATCH
+1. PRIMARY STACK MISMATCH
    Is the PRIMARY required language something other than Java/JavaScript/TypeScript?
    (Go required, Rust required, .NET/C# primary, Python primary, Ruby, etc.)
    → Check if candidate's stack is even mentioned in JD requirements
    → If candidate's stack is completely absent: REJECT
 
-3. DOMAIN EXPERTISE MISMATCH  
+2. DOMAIN EXPERTISE MISMATCH  
    Does the role require deep expertise the candidate genuinely lacks?
    (Blockchain/crypto/Web3, Network infrastructure, Embedded systems, 
    Compiler design, Game development, etc.)
    → If core domain is something candidate has never worked in: REJECT
 
-4. SENIORITY/LEVEL CHECK
+3. SENIORITY/LEVEL CHECK
    Is this a Staff/Principal/Distinguished/Fellow level role? 
    → These rarely sponsor and often require 10+ years: WARN
 
@@ -1343,7 +1327,7 @@ app.post('/api/optimize-resume', async (req, res) => {
       await saveCheckpoint(pool, sessionId, STEPS.COMPANY_CONTEXT, { companyContext });
       console.log(`   Problem type : ${companyContext.problemType}`);
       console.log(`   Confidence   : ${companyContext.confidence}`);
-      console.log(`   Best match   : ${companyContext.bestMatchFromLokesh}\n`);
+      console.log(`   Best match   : ${companyContext.bestMatchFromCandidate}\n`);
     } else {
       console.log(`♻️  Using cached company context: ${companyContext.problemType}`);
     }
@@ -1385,7 +1369,7 @@ app.post('/api/optimize-resume', async (req, res) => {
       } else if (companyName !== 'N/A' && position !== 'N/A') {
         const posClean  = position.replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,'_');
         const compClean = companyName.replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,'_');
-        suggestedFileName = `Lokesh_Para_${posClean}_${compClean}`;
+        suggestedFileName = `SaiKiran_${posClean}_${compClean}`;
         console.log(`📝 Generated filename: ${suggestedFileName}`);
       }
 
@@ -1442,12 +1426,11 @@ COMPANY CONTEXT:
 Problem type: ${companyContext ? companyContext.problemType : 'unclear'}
 What they build: ${companyContext ? companyContext.whatTheyBuild : 'unclear'}
 Domain language: ${companyContext ? companyContext.domainLanguage : 'unclear'}
-Best match from Lokesh: ${companyContext ? companyContext.bestMatchFromLokesh : 'unclear'}
+Best match from Candidate: ${companyContext ? companyContext.bestMatchFromCandidate : 'unclear'}
 Narrative frame: ${companyContext ? companyContext.narrativeFrame : 'unclear'}
 
 Project Readmes:
 ${projectReadmes.resumeOptimizerReadme}
-${projectReadmes.cifar10Readme}
 
 ====================================================
 SECTION 3: RESUME STRUCTURE — NON-NEGOTIABLE
@@ -1457,57 +1440,65 @@ Output MUST follow this EXACT structure. No additions. No removals. No reorderin
 
 ---RESUME START---
 
-Lokesh Para
+Sai Kiran P
 Software Engineer
 
-paralokesh5@gmail.com | 682-503-1723 | linkedin.com/in/lokeshpara99 | github.com/lokeshpara | lokeshpara.github.io/Portfolio
++1 (940) 344-2150 | saikiran.itcareer@gmail.com | linkedin.com/in/saikiran2017 | github.com/Saikiran-2017 | saikirandev-portfolio.vercel.app
+
+PROFESSIONAL SUMMARY
+
+Software Engineer with 5+ years of experience building end to end applications across banking, healthcare, and retail. Strong backend expertise in Java 17, Spring Boot, REST and GraphQL APIs, SQL optimization, event driven architectures, and AWS based deployments. Experienced in designing secure, scalable backend services that improve system stability, performance, and reliability at scale. Comfortable building user facing features using React and Angular as part of full stack delivery. Hands on exposure to integrating OpenAI APIs, LangChain, and RAG workflows into backend services for internal tooling, with a strong focus on engineering quality, CI/CD automation, and reliable delivery in agile teams.
 
 PROFESSIONAL EXPERIENCE
 
-Java Full Stack Developer | LPL Financial, San Diego, California
-June 2025 - Present
-• [6-7 bullets]
+Software Engineer | Truist Bank - USA | Aug 2024 - Present
+• [Extract bullets from originalResume]
 
-Java Full Stack Developer | Athenahealth, Boston, MA
-August 2024 - May 2025
-• [5-6 bullets]
+Full Stack Developer | Accenture - India | Jun 2021 - Aug 2023
+• [Extract bullets from originalResume]
 
-Java Full Stack Developer | YES Bank, Mumbai, India
-November 2021 - July 2023
-• [5-6 bullets]
+Software Engineer | HCL Technologies - India | Jan 2020 - May 2021
+• [Extract bullets from originalResume]
 
-Java Developer | Comcast Corporation, Chennai, India
-May 2020 - October 2021
-• [4-5 bullets]
+KEY PROJECTS
 
-PROJECTS
+Payments Idempotency & Outbox Pattern
+• [Extract from originalResume]
 
-Resume Optimizer AI - Chrome Extension with AI & Google Workspace Integration
-• [3-5 bullets]
+Clinical Document Automation
+• [Extract from originalResume]
 
-CIFAR-10 Image Classification with Custom ResNet Architecture
-• [3-5 bullets]
+GenAI Based Backend Document Search
+• [Extract from originalResume]
+
+Resume Optimizer AI - Chrome Extension
+• [Extract from originalResume]
+
+AI Email Follow-up Agent
+• [Extract from originalResume]
 
 TECHNICAL SKILLS
 
-[Categories: plain text, comma-separated, no bullets, no bold]
+[Categories: plain text, comma-separated, no bullets, no bold - extract from originalResume]
 
-CERTIFICATIONS
+CERTIFICATIONS & AWARDS
 
-• Oracle Cloud Infrastructure 2025 Certified AI Foundations Associate
-• AWS Certified Solutions Architect – Associate
+• AWS Certified Solutions Architect - Amazon Web Services
+• Oracle Cloud Infrastructure AI Foundations - Oracle
+• Multiple E-Card Recognitions (2021-2023) for delivery and collaboration excellence - Accenture
+• Client Appreciation Recognition - Truist Bank
 
 EDUCATION
 
-Master of Science in Computer and Information Sciences
-Southern Arkansas University | Magnolia, Arkansas, USA
+Southern Arkansas University
+• Master's Degree, Computer and Information Science | Dec 2024
 
 ---RESUME END---
 
 STRICT RULES — NEVER VIOLATE:
 ❌ Never change company names, dates, job titles, contact info
-❌ Never add a Summary or Objective section
-❌ Never change section order: Experience → Projects → Skills → Certifications → Education
+❌ Professional Summary is ALLOWED and REQUIRED (do not remove it)
+❌ Never change section order: Professional Summary → Professional Experience → Key Projects → Technical Skills → Certifications & Awards → Education
 ❌ Never change Certifications or Education text
 ❌ Never change project names
 ❌ Title stays exactly "Software Engineer"
@@ -1611,13 +1602,13 @@ ATS:
 
 Structure:
 □ Order: Experience → Projects → Skills → Certifications → Education
-□ "Lokesh Para" and "Software Engineer" in header
-□ All 4 companies with exact names and dates
-□ Both projects with exact names
+□ "Sai Kiran P" and "Software Engineer" in header
+□ All 3 companies with exact names and dates
+□ All 5 projects with exact names
 
 Bullet counts:
-□ LPL Financial: 6-7 | Athenahealth: 5-6 | YES Bank: 5-6 | Comcast: 4-5
-□ Resume Optimizer AI: 3-5 | CIFAR-10: 3-5
+□ Truist Bank: 5-7 | Accenture: 5-6 | HCL Technologies: 5-6
+□ Resume Optimizer AI: 3-5 | Other projects: 3-5 each
 
 Humanization:
 □ No consecutive same verb | "Implemented" max 3x | "Architected" max 2x
@@ -1629,7 +1620,7 @@ SECTION 9: OUTPUT INSTRUCTIONS
 
 Return ONLY the complete resume.
 No preamble. No commentary. No explanations.
-Start directly with "Lokesh Para".
+Start directly with "Sai Kiran P".
 End with the Education section.
 
 Begin output now:`;
@@ -1648,7 +1639,7 @@ Begin output now:`;
 
     // ── STEP 7: Upload to Google Drive ────────────────────────────────────────
     console.log('☁️ Step 7: Uploading to Google Drive...');
-    const fileName = suggestedFileName || `Lokesh_Para_Optimized_${Date.now()}`;
+    const fileName = suggestedFileName || `SaiKiran_Optimized_${Date.now()}`;
     console.log(`📄 Filename: ${fileName}`);
 
     let fileId, resumeLink;
@@ -1936,7 +1927,6 @@ PORTAL: ${atsAnalysis.portalName}
 
 Project Readmes:
 ${projectReadmes.resumeOptimizerReadme}
-${projectReadmes.cifar10Readme}
 
 ====================================================
 SECTION 3: MANDATORY STRUCTURE (NON-NEGOTIABLE)
@@ -1946,60 +1936,68 @@ Your output MUST follow this EXACT structure:
 
 ---RESUME START---
 
-Lokesh Para
+Sai Kiran P
 Software Engineer
 
-paralokesh5@gmail.com | 682-503-1723 | linkedin.com/in/lokeshpara99 | github.com/lokeshpara | lokeshpara.github.io/Portfolio
++1 (940) 344-2150 | saikiran.itcareer@gmail.com | linkedin.com/in/saikiran2017 | github.com/Saikiran-2017 | saikirandev-portfolio.vercel.app
+
+PROFESSIONAL SUMMARY
+
+Software Engineer with 5+ years of experience building end to end applications across banking, healthcare, and retail. Strong backend expertise in Java 17, Spring Boot, REST and GraphQL APIs, SQL optimization, event driven architectures, and AWS based deployments. Experienced in designing secure, scalable backend services that improve system stability, performance, and reliability at scale. Comfortable building user facing features using React and Angular as part of full stack delivery. Hands on exposure to integrating OpenAI APIs, LangChain, and RAG workflows into backend services for internal tooling, with a strong focus on engineering quality, CI/CD automation, and reliable delivery in agile teams.
 
 PROFESSIONAL EXPERIENCE
 
-Java Full Stack Developer | LPL Financial, San Diego, California
-June 2025 - Present
-• [6-7 bullets depending on resume type]
+Software Engineer | Truist Bank - USA | Aug 2024 - Present
+• [Extract bullets from originalResume]
 
-Java Full Stack Developer | Athenahealth, Boston, MA
-August 2024 - May 2025
-• [5-6 bullets depending on resume type]
+Full Stack Developer | Accenture - India | Jun 2021 - Aug 2023
+• [Extract bullets from originalResume]
 
-Java Full Stack Developer | YES Bank, Mumbai, India
-November 2021 - July 2023
-• [5-6 bullets depending on resume type]
+Software Engineer | HCL Technologies - India | Jan 2020 - May 2021
+• [Extract bullets from originalResume]
 
-Java Developer | Comcast Corporation, Chennai, India
-May 2020 - October 2021
-• [4-5 bullets depending on resume type]
+KEY PROJECTS
 
-PROJECTS
+Payments Idempotency & Outbox Pattern
+• [Extract from originalResume]
 
-Resume Optimizer AI - Chrome Extension with AI & Google Workspace Integration
-• [3-5 bullets - apply optimizations here if specified]
+Clinical Document Automation
+• [Extract from originalResume]
 
-CIFAR-10 Image Classification with Custom ResNet Architecture
-• [3-5 bullets - apply optimizations here if specified]
+GenAI Based Backend Document Search
+• [Extract from originalResume]
+
+Resume Optimizer AI - Chrome Extension
+• [Extract from originalResume]
+
+AI Email Follow-up Agent
+• [Extract from originalResume]
 
 TECHNICAL SKILLS
 
-[Categories with comma-separated skills]
+[Categories with comma-separated skills - extract from originalResume]
 
-CERTIFICATIONS
+CERTIFICATIONS & AWARDS
 
-• Oracle Cloud Infrastructure 2025 Certified AI Foundations Associate
-• AWS Certified Solutions Architect – Associate
+• AWS Certified Solutions Architect - Amazon Web Services
+• Oracle Cloud Infrastructure AI Foundations - Oracle
+• Multiple E-Card Recognitions (2021-2023) for delivery and collaboration excellence - Accenture
+• Client Appreciation Recognition - Truist Bank
 
 EDUCATION
 
-Master of Science in Computer and Information Sciences
-Southern Arkansas University | Magnolia, Arkansas, USA
+Southern Arkansas University
+• Master's Degree, Computer and Information Science | Dec 2024
 
 ---RESUME END---
 
 **STRICT RULES:**
 ❌ Never change: Company names, dates, job titles, contact info
-❌ Never add: Summary section
-❌ Never change: Section order (Experience → Projects → Skills → Certifications → Education)
+❌ Professional Summary is ALLOWED and REQUIRED (do not remove it)
+❌ Never change: Section order (Professional Summary → Professional Experience → Key Projects → Technical Skills → Certifications & Awards → Education)
 ❌ Never change: Certifications or Education text
 ❌ Never change: Project names or core project technologies
-✅ Title must be "Software Developer" (never change)
+✅ Title must be "Software Engineer" (never change)
 
 ====================================================
 SECTION 4: APPLYING OPTIMIZATION POINTS
@@ -2116,9 +2114,9 @@ Resume Optimizer AI - Chrome Extension with AI & Google Workspace Integration
 • Developed full-stack Chrome extension with **Node.js** backend integrating **Google Gemini 2.0** and **ChatGPT GPT-4** APIs for AI-powered resume optimization achieving 85-92% ATS match rates
 • Built comprehensive application tracking system using **PostgreSQL** database with full-text search and automated **Google Drive** integration handling 360+ applications
 
-CIFAR-10 Image Classification with Custom ResNet Architecture
-• Designed custom ResNet-inspired CNN architecture using **PyTorch** achieving 92.22% test accuracy with minimal overfitting and 100% accuracy on 8 out of 10 classes
-• Implemented One Cycle Policy learning rate scheduling with **PyTorch** optimizer enabling super-convergence and 40% faster training
+AI Email Follow-up Agent - Intelligent Email Automation System
+• Architected intelligent email automation agent using **LangChain** and **OpenAI API** to autonomously send follow-up emails based on job application tracking
+• Designed multi-step agentic workflow handling email composition, performance monitoring, and campaign orchestration integrated with Gmail APIs
 
 ====================================================
 SECTION 7: SKILLS SECTION FORMAT
@@ -2232,18 +2230,17 @@ SECTION 10: QUALITY CHECKLIST
 Before returning the resume, verify:
 
 **Structure:**
-□ Sections in order: Experience → Projects → Skills → Certifications → Education
-□ Header has "Lokesh Para" and "Software Engineer"
-□ All 4 companies present with exact names/dates
-□ Both projects present with names and descriptions
+□ Sections in order: Professional Summary → Professional Experience → Key Projects → Technical Skills → Certifications & Awards → Education
+□ Header has "Sai Kiran P" and "Software Engineer"
+□ All 3 companies present with exact names/dates
+□ Contact information correct and formatted properly
+□ Professional Summary section included
 
 **Bullets:**
-□ LPL Financial: 6-7 bullets (depending on ${resumeType})
-□ Athenahealth: 5-6 bullets
-□ YES Bank: 5-6 bullets
-□ Comcast: 4-5 bullets
-□ Resume Optimizer AI: 3-5 bullets
-□ CIFAR-10 Project: 3-5 bullets
+□ Truist Bank: 7-10 bullets
+□ Accenture: 7-10 bullets
+□ HCL Technologies: 6-8 bullets
+□ Key Projects (5 total): 1-3 bullets each
 
 **Humanization:**
 □ No consecutive bullets start with same verb
@@ -2288,7 +2285,7 @@ NO explanations or commentary
 NO markdown formatting
 NO extra text before or after
 
-Start directly with "Lokesh Para"
+Start directly with "Sai Kiran P"
 End with education section
 
 Resume should be ready to copy-paste into Google Doc.
@@ -2304,7 +2301,7 @@ Begin output now:
 
   const posClean = position.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
   const compClean = companyName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-  const fileName = `Lokesh_Para_${posClean}_${compClean}`;
+  const fileName = `SaiKiran_${posClean}_${compClean}`;
 
   const file = await drive.files.create({
     requestBody: { name: fileName, parents: [DRIVE_FOLDER_ID], mimeType: 'application/vnd.google-apps.document' },
@@ -2656,18 +2653,18 @@ function convertToStyledHTML(text) {
   // Helper: Convert contact links
   function convertContactLinks(text) {
     text = text.replace(
-      /linkedin\.com\/in\/lokeshpara99/gi,
-      '<a href="https://linkedin.com/in/lokeshpara99">LinkedIn</a>'
+      /https?:\/\/(www\.)?linkedin\.com\/in\/[^\s|)]+/gi,
+      '<a href="https://www.linkedin.com/in/saikiran2017/">LinkedIn</a>'
     );
     
     text = text.replace(
-      /github\.com\/lokeshpara/gi,
-      '<a href="https://github.com/lokeshpara">GitHub</a>'
+      /https?:\/\/(www\.)?github\.com\/Saikiran[^\s|)]*|github\.com\/Saikiran-2017/gi,
+      '<a href="https://github.com/Saikiran-2017">GitHub</a>'
     );
     
     text = text.replace(
-      /lokeshpara\.github\.io\/Portfolio/gi,
-      '<a href="https://lokeshpara.github.io/Portfolio">Portfolio</a>'
+      /https?:\/\/[a-z]+\.?vercel\.app\/Portfolio|https?:\/\/saikirandev-portfolio\.vercel\.app/gi,
+      '<a href="https://saikirandev-portfolio.vercel.app">Portfolio</a>'
     );
     
     return text;
@@ -2679,15 +2676,15 @@ function convertToStyledHTML(text) {
     if (text.includes('Resume Optimizer AI')) {
       text = text.replace(
         /(Resume Optimizer AI[^•\n]*)/,
-        '<a href="https://github.com/lokeshpara/Resume-Optimizer-AI">$1</a>'
+        '<a href="https://github.com/Saikiran-2017/Resume-Optimizer-AI">$1</a>'
       );
     }
     
-    // CIFAR-10
-    if (text.includes('CIFAR-10') || text.includes('CIFAR10')) {
+    // AI Email Follow-up Agent
+    if (text.includes('AI Email Follow-up Agent') || text.includes('AI Email Followup Agent')) {
       text = text.replace(
-        /(CIFAR-?10[^•\n]*)/,
-        '<a href="https://github.com/lokeshpara/CIFAR10-Custom-ResNet">$1</a>'
+        /(AI Email Follow-?up Agent[^•\n]*)/,
+        '<a href="https://github.com/Saikiran-2017/AI-Email-Followup-Agent">$1</a>'
       );
     }
     
@@ -2710,7 +2707,7 @@ function convertToStyledHTML(text) {
     if (!line) continue;
 
     // NAME
-    if (i === 0 || (i < 3 && line.toUpperCase().includes('LOKESH'))) {
+    if (i === 0 || (i < 3 && (line.toUpperCase().includes('SAIKIRAN') || line.toUpperCase().includes('SAI KIRAN')))) {
       flushBullets();
       html += `<div class="name">${line}</div>\n`;
       continue;
@@ -2759,10 +2756,11 @@ function convertToStyledHTML(text) {
         !line.startsWith('GitHub:') &&
         !line.startsWith('Technologies:') &&
         (line.includes('Resume Optimizer') || 
-         line.includes('CIFAR-10') || 
-         line.includes('CIFAR10') ||
-         line.includes('Chrome Extension') ||
-         line.includes('Image Classification'))) {
+         line.includes('Payments Idempotency') || 
+         line.includes('Clinical Document') ||
+         line.includes('GenAI') ||
+         line.includes('AI Email') ||
+         line.includes('Email Follow'))) {
       flushBullets();
       const projectWithLink = convertProjectNameToLink(line);
       html += `<div class="project-header">${projectWithLink}</div>\n`;
@@ -2791,8 +2789,8 @@ function convertToStyledHTML(text) {
         !inEducation &&
         !inCertifications &&
         (line.includes('Developer') || line.includes('Engineer') || 
-         line.includes('LPL') || line.includes('Athenahealth') || 
-         line.includes('YES Bank') || line.includes('Comcast'))) {
+         line.includes('Truist') || line.includes('Accenture') || 
+         line.includes('HCL'))) {
       flushBullets();
       const pipeIdx = line.indexOf('|');
       const title = line.substring(0, pipeIdx).trim();

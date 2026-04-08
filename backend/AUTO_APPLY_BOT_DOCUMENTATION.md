@@ -126,9 +126,9 @@ This is the most important UX requirement. User must always see what the bot is 
 │  14:32:03  Clicked Apply button                     │
 │  14:32:08  Page 1: scanned 8 fields                 │
 │  14:32:09  AI answered all 8 fields                 │
-│  14:32:15  Filled: First Name → "Lokesh"            │
-│  14:32:16  Filled: Last Name → "Para"               │
-│  14:32:17  Filled: Email → "paralokesh5@gmail.com"  │
+│  14:32:15  Filled: First Name → "Sai Kiran"            │
+│  14:32:16  Filled: Last Name → "P"               │
+│  14:32:17  Filled: Email → "saikiran.itcareer@gmail.com"  │
 │  14:32:20  Uploaded resume PDF                      │
 │  14:32:22  Clicked Next → Page 2                    │
 └─────────────────────────────────────────────────────┘
@@ -277,15 +277,15 @@ This file drives all field answers. Must be complete.
 ```json
 {
   "personal": {
-    "fullName": "Lokesh Para",
-    "firstName": "Lokesh",
-    "lastName": "Para",
-    "email": "paralokesh5@gmail.com",
-    "phone": "682-503-1723",
-    "phoneFormatted": "+16825031723",
-    "linkedin": "https://linkedin.com/in/lokeshpara99",
-    "github": "https://github.com/lokeshpara",
-    "portfolio": "https://lokeshpara.github.io/Portfolio",
+    "fullName": "Sai Kiran P",
+    "firstName": "Sai Kiran",
+    "lastName": "P",
+    "email": "saikiran.itcareer@gmail.com",
+    "phone": "+1 (940) 344-2150",
+    "phoneFormatted": "+19403442150",
+    "linkedin": "https://www.linkedin.com/in/saikiran2017/",
+    "github": "https://github.com/Saikiran-2017",
+    "portfolio": "https://saikirandev-portfolio.vercel.app",
     "address": {
       "street": "1203 Meadow Creek Dr",
       "city": "Irving",
@@ -582,7 +582,7 @@ For each page, extract ALL of these field types:
 Send ONE prompt per page with ALL fields:
 
 ```
-You are filling a Workday job application for Lokesh Para.
+You are filling a Workday job application for Sai Kiran P.
 
 JOB: {position} at {companyName}
 JD SUMMARY: {first 2000 chars of jobDescription}
@@ -618,7 +618,7 @@ RULES:
 2. Key = the field "key" value shown above
 3. For dropdown fields: return EXACTLY one of the option texts shown
 4. For text fields: return appropriate answer from profile
-5. For yes/no questions about sponsorship: Lokesh DOES require sponsorship
+5. For yes/no questions about sponsorship: Sai Kiran P DOES require sponsorship
 6. For salary fields: use 120000
 7. For fields you cannot answer confidently: return "__SKIP__"
 8. Never return "__SKIP__" for required fields — always provide best answer
@@ -626,7 +626,7 @@ RULES:
 
 Return JSON:
 {
-  "legalNameSection_firstName": "Lokesh",
+  "legalNameSection_firstName": "Sai Kiran",
   "countryDropdown": "United States",
   "howDidYouHear": "LinkedIn"
 }

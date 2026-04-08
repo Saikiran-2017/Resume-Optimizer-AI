@@ -8,6 +8,149 @@ let currentAction = 'optimize'; // 'analyze' or 'optimize'
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function () {
+  // ===== HELPER FUNCTIONS DEFINED FIRST =====
+
+  // Show specific state
+  function showState(stateName) {
+    // This relies on state DOM elements being available
+    const modeSelectionState = document.getElementById('modeSelectionState');
+    const actionSelectionState = document.getElementById('actionSelectionState');
+    const pasteJdState = document.getElementById('pasteJdState');
+    const urlModeState = document.getElementById('urlModeState');
+    const loadingState = document.getElementById('loadingState');
+    const successState = document.getElementById('successState');
+    const errorState = document.getElementById('errorState');
+    const settingsRequired = document.getElementById('settingsRequired');
+
+    const states = {
+      'actionSelection': actionSelectionState,
+      'modeSelection': modeSelectionState,
+      'pasteJd': pasteJdState,
+      'urlMode': urlModeState,
+      'loading': loadingState,
+      'success': successState,
+      'error': errorState,
+      'settingsRequired': settingsRequired,
+      'fitCheck': document.getElementById('fitCheckState')
+    };
+
+    // Hide all states
+    Object.values(states).forEach(state => {
+      if (state) state.style.display = 'none';
+    });
+
+    // Show requested state
+    const targetState = states[stateName];
+    if (targetState) {
+      targetState.style.display = 'block';
+    }
+  }
+
+  function updateButtonTexts() {
+    const pasteBtnText = document.getElementById('pasteBtnText');
+    const urlBtnText = document.getElementById('urlBtnText');
+    const loadingTitle = document.getElementById('loadingTitle');
+
+    if (currentAction === 'analyze') {
+      if (pasteBtnText) pasteBtnText.textContent = '📊 Analyze Resume';
+      if (urlBtnText) urlBtnText.textContent = '📊 Analyze Resume';
+      if (loadingTitle) loadingTitle.textContent = 'Analyzing Your Resume';
+    } else {
+      if (pasteBtnText) pasteBtnText.textContent = '⚡ Optimize Resume';
+      if (urlBtnText) urlBtnText.textContent = '⚡ Optimize Resume';
+      if (loadingTitle) loadingTitle.textContent = 'Optimizing Your Resume';
+    }
+  }
+
+  function checkSettings() {
+    const currentProvider = document.getElementById('currentProvider');
+    chrome.storage.local.get([
+      'aiProvider', 'geminiKey1', 'geminiKey2', 'geminiKey3',
+      'chatgptApiKey', 'chatgptKey2', 'chatgptKey3'
+    ], (result) => {
+      const provider = result.aiProvider;
+
+      // Update provider badge
+      if (currentProvider) {
+        if (provider === 'gemini') {
+          currentProvider.textContent = 'Gemini AI';
+        } else if (provider === 'chatgpt') {
+          currentProvider.textContent = 'ChatGPT';
+        } else {
+          currentProvider.textContent = 'Not configured';
+        }
+      }
+
+      // Check if keys are set
+      const hasKeys = provider === 'gemini'
+        ? (result.geminiKey1 && result.geminiKey2 && result.geminiKey3)
+        : (result.chatgptApiKey && result.chatgptKey2 && result.chatgptKey3);
+
+      if (provider && hasKeys) {
+        showState('actionSelection');
+      } else {
+        showState('settingsRequired');
+      }
+    });
+  }
+
+  async function checkServerStatus() {
+    const serverStatus = document.getElementById('serverStatus');
+    const serverText = document.getElementById('serverText');
+    try {
+      const [optResponse, anaResponse] = await Promise.all([
+        fetch(`${BACKEND_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => null),
+        fetch(`${ANALYSIS_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => null)
+      ]);
+
+      const optOk = optResponse?.ok;
+      const anaOk = anaResponse?.ok;
+
+      if (serverStatus && serverText) {
+        if (optOk && anaOk) {
+          serverStatus.style.background = '#10b981';
+          serverText.textContent = 'Both servers online';
+        } else if (optOk) {
+          serverStatus.style.background = '#f59e0b';
+          serverText.textContent = 'Optimize ready';
+        } else if (anaOk) {
+          serverStatus.style.background = '#f59e0b';
+          serverText.textContent = 'Analysis ready';
+        } else {
+          serverStatus.style.background = '#ef4444';
+          serverText.textContent = 'Servers offline';
+        }
+      }
+    } catch (error) {
+      if (serverStatus && serverText) {
+        serverStatus.style.background = '#ef4444';
+        serverText.textContent = 'Servers offline';
+      }
+    }
+  }
+
+  async function getCurrentTabUrl() {
+    return new Promise((resolve) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0]) {
+          resolve(tabs[0].url);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  async function updateCurrentUrl() {
+    const currentUrl = document.getElementById('currentUrl');
+    const url = await getCurrentTabUrl();
+    if (currentUrl) {
+      currentUrl.textContent = url || 'Could not get URL';
+    }
+  }
+
+  // ===== NOW GET DOM ELEMENTS =====
+
   // DOM elements - States
   const modeSelectionState = document.getElementById('modeSelectionState');
   const actionSelectionState = document.getElementById('actionSelectionState');
@@ -739,129 +882,127 @@ function updateStep(stepNum, state) {
     }
   }
 
-});
+  // =====================================================
+  // FIT CHECK HANDLERS — Must be inside DOMContentLoaded
+  // =====================================================
 
-// =====================================================
-// FIT CHECK HANDLERS
-// =====================================================
+  // Called when backend returns fitCheckFailed: true (hard NO)
+  function showFitCheckBlocked(data) {
+    const fitCheck = data.fitCheck || {};
 
-// Called when backend returns fitCheckFailed: true (hard NO)
-function showFitCheckBlocked(data) {
-  const fitCheck = data.fitCheck || {};
+    const reasonEl  = document.getElementById('fitBlockReason');
+    const detailEl  = document.getElementById('fitBlockDetail');
+    const backBtn   = document.getElementById('fitBlockBack');
 
-  const reasonEl  = document.getElementById('fitBlockReason');
-  const detailEl  = document.getElementById('fitBlockDetail');
-  const backBtn   = document.getElementById('fitBlockBack');
-
-  if (reasonEl) reasonEl.textContent = fitCheck.reason || 'This role is not a match.';
-  if (detailEl) {
-    detailEl.innerHTML =
-      `<strong>Blocker:</strong> ${fitCheck.blocker || 'Unknown'}<br>` +
-      `<strong>Fit Score:</strong> ${fitCheck.fitScore ?? '—'}/100<br><br>` +
-      `No resume changes can overcome this. Save your API calls for better-matched roles.`;
-  }
-
-  // Show blocked card, hide warn card
-  const blocked = document.getElementById('fitCheckBlocked');
-  const warn    = document.getElementById('fitCheckWarn');
-  if (blocked) blocked.style.display = 'block';
-  if (warn)    warn.style.display    = 'none';
-
-  // Wire back button
-  if (backBtn) {
-    backBtn.onclick = () => {
-      currentMode   = null;
-      currentAction = 'optimize';
-      showState('actionSelection');
-    };
-  }
-
-  showState('fitCheck');
-}
-
-// Called when backend returns requiresConfirmation: true (WARN)
-function showFitCheckWarn(data, originalRequestBody, mode) {
-  const fitCheck = data.fitCheck || {};
-
-  const reasonEl  = document.getElementById('fitWarnReason');
-  const detailEl  = document.getElementById('fitWarnDetail');
-  const scoreEl   = document.getElementById('fitScorePill');
-  const proceedBtn = document.getElementById('fitWarnProceed');
-  const backBtn   = document.getElementById('fitWarnBack');
-
-  if (reasonEl) reasonEl.textContent = fitCheck.reason || 'This role has some concerns.';
-  if (detailEl) {
-    detailEl.innerHTML =
-      `<strong>Concern:</strong> ${fitCheck.blocker || 'Weak stack or domain match'}<br><br>` +
-      `Resume will still be generated and optimized. Just be prepared for a lower response rate.`;
-  }
-  if (scoreEl) {
-    const score = fitCheck.fitScore ?? 0;
-    scoreEl.textContent = `Fit Score: ${score}/100`;
-    // Color by score
-    if (score >= 60) {
-      scoreEl.style.background = '#fefce8';
-      scoreEl.style.color = '#854d0e';
-    } else {
-      scoreEl.style.background = '#fef2f2';
-      scoreEl.style.color = '#991b1b';
-      scoreEl.style.borderColor = '#fca5a5';
+    if (reasonEl) reasonEl.textContent = fitCheck.reason || 'This role is not a match.';
+    if (detailEl) {
+      detailEl.innerHTML =
+        `<strong>Blocker:</strong> ${fitCheck.blocker || 'Unknown'}<br>` +
+        `<strong>Fit Score:</strong> ${fitCheck.fitScore ?? '—'}/100<br><br>` +
+        `No resume changes can overcome this. Save your API calls for better-matched roles.`;
     }
+
+    // Show blocked card, hide warn card
+    const blocked = document.getElementById('fitCheckBlocked');
+    const warn    = document.getElementById('fitCheckWarn');
+    if (blocked) blocked.style.display = 'block';
+    if (warn)    warn.style.display    = 'none';
+
+    // Wire back button
+    if (backBtn) {
+      backBtn.onclick = () => {
+        currentMode   = null;
+        currentAction = 'optimize';
+        showState('actionSelection');
+      };
+    }
+
+    showState('fitCheck');
   }
 
-  // Show warn card, hide blocked card
-  const blocked = document.getElementById('fitCheckBlocked');
-  const warn    = document.getElementById('fitCheckWarn');
-  if (blocked) blocked.style.display = 'none';
-  if (warn)    warn.style.display    = 'block';
+  // Called when backend returns requiresConfirmation: true (WARN)
+  function showFitCheckWarn(data, originalRequestBody, mode) {
+    const fitCheck = data.fitCheck || {};
 
-  // Wire "Proceed Anyway" — re-send request with forceApply + sessionId
-  if (proceedBtn) {
-    proceedBtn.onclick = async () => {
-      proceedBtn.disabled = true;
-      proceedBtn.textContent = 'Generating resume...';
+    const reasonEl  = document.getElementById('fitWarnReason');
+    const detailEl  = document.getElementById('fitWarnDetail');
+    const scoreEl   = document.getElementById('fitScorePill');
+    const proceedBtn = document.getElementById('fitWarnProceed');
+    const backBtn   = document.getElementById('fitWarnBack');
 
-      try {
-        const forceBody = {
-          ...originalRequestBody,
-          forceApply:    true,
-          resumeSessionId: data.sessionId || null
-        };
-
-        showState('loading');
-        updateLoadingStep('⚡ Proceeding with optimization...', 10);
-
-        const res = await fetch(`${BACKEND_URL}/api/optimize-resume`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(forceBody)
-        });
-
-        updateLoadingStep('✅ Resume optimizing...', 50);
-        const result = await res.json();
-
-        if (!res.ok) throw new Error(result.error || result.details || 'Optimization failed');
-
-        updateLoadingStep('✅ Resume generated!', 100);
-        await new Promise(r => setTimeout(r, 500));
-        showSuccess(result);
-
-      } catch (err) {
-        showError(err.message || 'Optimization failed after confirmation');
+    if (reasonEl) reasonEl.textContent = fitCheck.reason || 'This role has some concerns.';
+    if (detailEl) {
+      detailEl.innerHTML =
+        `<strong>Concern:</strong> ${fitCheck.blocker || 'Weak stack or domain match'}<br><br>` +
+        `Resume will still be generated and optimized. Just be prepared for a lower response rate.`;
+    }
+    if (scoreEl) {
+      const score = fitCheck.fitScore ?? 0;
+      scoreEl.textContent = `Fit Score: ${score}/100`;
+      // Color by score
+      if (score >= 60) {
+        scoreEl.style.background = '#fefce8';
+        scoreEl.style.color = '#854d0e';
+      } else {
+        scoreEl.style.background = '#fef2f2';
+        scoreEl.style.color = '#991b1b';
+        scoreEl.style.borderColor = '#fca5a5';
       }
-    };
+    }
+
+    // Show warn card, hide blocked card
+    const blocked = document.getElementById('fitCheckBlocked');
+    const warn    = document.getElementById('fitCheckWarn');
+    if (blocked) blocked.style.display = 'none';
+    if (warn)    warn.style.display    = 'block';
+
+    // Wire "Proceed Anyway" — re-send request with forceApply + sessionId
+    if (proceedBtn) {
+      proceedBtn.onclick = async () => {
+        proceedBtn.disabled = true;
+        proceedBtn.textContent = 'Generating resume...';
+
+        try {
+          const forceBody = {
+            ...originalRequestBody,
+            forceApply:    true,
+            resumeSessionId: data.sessionId || null
+          };
+
+          showState('loading');
+          updateLoadingStep('⚡ Proceeding with optimization...', 10);
+
+          const res = await fetch(`${BACKEND_URL}/api/optimize-resume`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(forceBody)
+          });
+
+          updateLoadingStep('✅ Resume optimizing...', 50);
+          const result = await res.json();
+
+          if (!res.ok) throw new Error(result.error || result.details || 'Optimization failed');
+
+          updateLoadingStep('✅ Resume generated!', 100);
+          await new Promise(r => setTimeout(r, 500));
+          showSuccess(result);
+
+        } catch (err) {
+          showError(err.message || 'Optimization failed after confirmation');
+        }
+      };
+    }
+
+    // Wire "Back"
+    if (backBtn) {
+      backBtn.onclick = () => {
+        currentMode   = null;
+        currentAction = 'optimize';
+        showState('actionSelection');
+      };
+    }
+
+    showState('fitCheck');
   }
 
-  // Wire "Back"
-  if (backBtn) {
-    backBtn.onclick = () => {
-      currentMode   = null;
-      currentAction = 'optimize';
-      showState('actionSelection');
-    };
-  }
-
-  showState('fitCheck');
-}
-
-// END OF FILE
+});
